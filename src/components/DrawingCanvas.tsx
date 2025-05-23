@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { Moon, Sun, Plus, Trash2, Move, Settings, Download, Upload, Save } from 'lucide-react';
+import { Moon, Sun, Plus, Trash2, Settings, Download, Upload, Save } from 'lucide-react'; // Removed LineChart, SlidersHorizontal, Gauge
 import Draggable from 'react-draggable';
 import html2canvas from 'html2canvas';
 
@@ -11,6 +11,7 @@ interface Panel {
   width: number;
   height: number;
   zIndex: number;
+  text: string; // Added for Feature 2: Text box in panels
 }
 
 interface CanvasConfig {
@@ -27,8 +28,6 @@ export default function DrawingCanvas() {
   const { theme, toggleTheme } = useTheme();
   const [panels, setPanels] = useState<Panel[]>([]);
   const [selectedPanel, setSelectedPanel] = useState<string | null>(null);
-  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
-  const [moveMode, setMoveMode] = useState(false);
   const [editingPanel, setEditingPanel] = useState<string | null>(null);
   const [newWidth, setNewWidth] = useState('');
   const [newHeight, setNewHeight] = useState('');
@@ -42,62 +41,140 @@ export default function DrawingCanvas() {
   const [roundedCorners, setRoundedCorners] = useState(true);
   const [showGrid, setShowGrid] = useState(false);
 
+  // New states and refs for resizing functionality
+  const [isResizing, setIsResizing] = useState(false);
+  const [activePanelId, setActivePanelId] = useState<string | null>(null);
+  const initialX = useRef(0);
+  const initialY = useRef(0);
+  const initialWidth = useRef(0);
+  const initialHeight = useRef(0);
+
+  // New state for Feature 3: Copy-paste panels
+  const [copiedPanelData, setCopiedPanelData] = useState<Panel | null>(null);
+
+  // New functions for resizing
+  const handleMouseDownResize = (e: React.MouseEvent, panel: Panel) => {
+    e.stopPropagation(); // Prevent dragging from starting when clicking resize handle
+    setIsResizing(true);
+    setActivePanelId(panel.id);
+    initialX.current = e.clientX;
+    initialY.current = e.clientY;
+    initialWidth.current = panel.width;
+    initialHeight.current = panel.height;
+  };
+
+  const handleMouseMoveResize = (e: MouseEvent) => {
+    if (!isResizing || !activePanelId) return;
+
+    const deltaX = e.clientX - initialX.current;
+    const deltaY = e.clientY - initialY.current;
+
+    setPanels(prevPanels =>
+      prevPanels.map(p => {
+        if (p.id === activePanelId) {
+          const newWidth = Math.max(50, initialWidth.current + deltaX); // Minimum width of 50px
+          const newHeight = Math.max(50, initialHeight.current + deltaY); // Minimum height of 50px
+          return { ...p, width: newWidth, height: newHeight };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleMouseUpResize = () => {
+    setIsResizing(false);
+    setActivePanelId(null);
+  };
+
+  // Effect to add/remove global mouse event listeners for resizing
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMoveResize);
+      window.addEventListener('mouseup', handleMouseUpResize);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMoveResize);
+      window.removeEventListener('mouseup', handleMouseUpResize);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMoveResize);
+      window.removeEventListener('mouseup', handleMouseUpResize);
+    };
+  }, [isResizing, activePanelId]); // Re-run effect when resizing state or active panel changes
+
+  // Effect for Feature 3: Copy-paste keyboard events
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(true);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(false);
+      if ((e.ctrlKey || e.metaKey)) { // Ctrl for Windows/Linux, Meta for Mac
+        if (e.key === 'c') {
+          if (selectedPanel) {
+            const panelToCopy = panels.find(p => p.id === selectedPanel);
+            if (panelToCopy) {
+              setCopiedPanelData(panelToCopy);
+            }
+          }
+        } else if (e.key === 'v') {
+          e.preventDefault(); // Prevent default browser paste behavior
+          if (copiedPanelData) {
+            const newId = crypto.randomUUID();
+            const maxZIndex = panels.length > 0 ? Math.max(...panels.map(p => p.zIndex)) : 0;
+            const newPanel: Panel = { // Explicitly type as Panel
+              ...copiedPanelData,
+              id: newId,
+              x: copiedPanelData.x + 20, // Offset for visibility
+              y: copiedPanelData.y + 20, // Offset for visibility
+              zIndex: maxZIndex + 1, // Bring to front
+            };
+            setPanels(prev => [...prev, newPanel]);
+            setSelectedPanel(newId); // Select the newly pasted panel
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [selectedPanel, copiedPanelData, panels]); // Dependencies for keyboard events
 
   const addPanel = () => {
     const canvas = document.querySelector('.canvas-container');
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
-      const x = rect.width / 2 - 50; // Center horizontally
-      const y = rect.height / 2 - 50; // Center vertically
-      const maxZIndex = panels.length > 0 
+      const x = rect.width / 2 - 200; // Center horizontally
+      const y = rect.height / 2 - 100; // Center vertically
+      const maxZIndex = panels.length > 0
         ? Math.max(...panels.map(p => p.zIndex))
         : 0;
-      setPanels(prev => [...prev, { 
-        id: crypto.randomUUID(), 
-        x, 
+      setPanels(prev => [...prev, {
+        id: crypto.randomUUID(),
+        x,
         y,
-        width: 400,
-        height: 400,
-        zIndex: maxZIndex + 1
+        width: 400, // Default width
+        height: 200, // Default height
+        zIndex: maxZIndex + 1,
+        text: '', // Feature 2: Initialize text
       }]);
     }
   };
 
-  const removePanel = (id: string) => {
-    setPanels(prev => prev.filter(panel => panel.id !== id));
-    setSelectedPanel(null);
-  };
-
-  const clearPanels = () => {
-    setPanels([]);
-    setSelectedPanel(null);
+  // Feature 1: Modified removePanel to only delete the specified ID.
+  const removeSelectedPanel = () => {
+    if (selectedPanel) {
+      setPanels(prev => prev.filter(panel => panel.id !== selectedPanel));
+      setSelectedPanel(null); // Deselect the panel after removal
+    }
   };
 
   const handleDragStop = (id: string, e: any, data: { x: number; y: number }) => {
-    setPanels(prev => prev.map(panel => 
-      panel.id === id ? { ...panel, x: data.x, y: data.y } : panel
-    ));
+    // Only update position if not currently resizing
+    if (!isResizing) {
+      setPanels(prev => prev.map(panel =>
+        panel.id === id ? { ...panel, x: data.x, y: data.y } : panel
+      ));
+    }
   };
 
   const handleDimensionClick = (panel: Panel) => {
@@ -109,7 +186,7 @@ export default function DrawingCanvas() {
   const handleDimensionSubmit = (id: string) => {
     const width = parseInt(newWidth);
     const height = parseInt(newHeight);
-    
+
     if (!isNaN(width) && !isNaN(height) && width >= 50 && height >= 50) {
       setPanels(prev => prev.map(panel =>
         panel.id === id ? { ...panel, width, height } : panel
@@ -126,11 +203,6 @@ export default function DrawingCanvas() {
     }
   };
 
-  const toggleMoveMode = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMoveMode(!moveMode);
-  };
-
   const handleCanvasDimensionClick = () => {
     setIsEditingCanvas(true);
     setNewCanvasWidth(canvasWidth.toString());
@@ -140,7 +212,7 @@ export default function DrawingCanvas() {
   const handleCanvasDimensionSubmit = () => {
     const width = parseInt(newCanvasWidth);
     const height = parseInt(newCanvasHeight);
-    
+
     if (!isNaN(width) && !isNaN(height) && width >= 200 && height >= 200) {
       setCanvasWidth(width);
       setCanvasHeight(height);
@@ -182,7 +254,7 @@ export default function DrawingCanvas() {
       roundedCorners,
       showGrid
     };
-    
+
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -201,7 +273,9 @@ export default function DrawingCanvas() {
       reader.onload = (e) => {
         try {
           const config: CanvasConfig = JSON.parse(e.target?.result as string);
-          setPanels(config.panels);
+          // Ensure imported panels have 'text' property, default to empty string if missing
+          const importedPanels = config.panels.map(p => ({ ...p, text: p.text || '' }));
+          setPanels(importedPanels);
           setCanvasWidth(config.canvasWidth);
           setCanvasHeight(config.canvasHeight);
           setCanvasBgColor(config.canvasBgColor);
@@ -215,6 +289,15 @@ export default function DrawingCanvas() {
       };
       reader.readAsText(file);
     }
+  };
+
+  // Feature 2: Handler for text input in panels
+  const handlePanelTextChange = (id: string, newText: string) => {
+    setPanels(prevPanels =>
+      prevPanels.map(p =>
+        p.id === id ? { ...p, text: newText } : p
+      )
+    );
   };
 
   return (
@@ -280,13 +363,16 @@ export default function DrawingCanvas() {
             >
               <Settings size={20} />
             </button>
+            {/* Feature 1: Delete selected panel only */}
             <button
-              onClick={clearPanels}
+              onClick={removeSelectedPanel}
+              disabled={!selectedPanel} // Disable if no panel is selected
               className={`p-2 rounded-lg ${
                 theme === 'dark'
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-red-500 hover:bg-red-600'
-              } text-white transition-colors`}
+                  ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-800'
+                  : 'bg-red-500 hover:bg-red-600 disabled:bg-red-300'
+              } text-white transition-colors disabled:cursor-not-allowed`}
+              title={selectedPanel ? "Delete selected panel" : "No panel selected"}
             >
               <Trash2 size={20} />
             </button>
@@ -304,12 +390,12 @@ export default function DrawingCanvas() {
         </div>
 
         <div className="flex justify-center items-center">
-          <div 
+          <div
             className={`relative border-2 canvas-container transition-colors duration-200 overflow-hidden ${
               roundedCorners ? 'rounded-xl' : ''
             } ${showGrid ? 'grid-background' : ''}`}
-            style={{ 
-              width: canvasWidth, 
+            style={{
+              width: canvasWidth,
               height: canvasHeight,
               backgroundColor: canvasBgColor,
               color: canvasFgColor,
@@ -317,6 +403,8 @@ export default function DrawingCanvas() {
                 linear-gradient(90deg, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} 1px, transparent 1px)` : 'none',
               backgroundSize: showGrid ? '20px 20px' : 'auto'
             }}
+            // Added onClick to deselect panels when clicking on canvas background
+            onClick={() => setSelectedPanel(null)}
           >
             {isEditingCanvas && (
               <div className="absolute top-4 right-4 z-30 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-xl border dark:border-gray-700">
@@ -431,7 +519,7 @@ export default function DrawingCanvas() {
                 position={{ x: panel.x, y: panel.y }}
                 onStop={(e, data) => handleDragStop(panel.id, e, data)}
                 bounds="parent"
-                disabled={!isCtrlPressed && !moveMode}
+                disabled={isResizing} // Disable dragging while resizing
               >
                 <div
                   className={`absolute ${
@@ -439,7 +527,7 @@ export default function DrawingCanvas() {
                   }`}
                   style={{ zIndex: panel.zIndex }}
                   onClick={(e) => {
-                    e.stopPropagation();
+                    e.stopPropagation(); // Prevent deselecting canvas when clicking panel
                     setSelectedPanel(panel.id);
                   }}
                 >
@@ -452,15 +540,31 @@ export default function DrawingCanvas() {
                           ? 'bg-gray-700 shadow-xl shadow-gray-900/70'
                           : 'bg-white shadow-xl shadow-gray-300/70'
                       } border-2 ${
-                        theme === 'dark' ? 'border-gray-500' : 'border-gray-300'
-                      } transition-colors duration-200`}
+                        selectedPanel === panel.id
+                          ? 'border-green-500 border-dotted' // Green dotted border for selected panels
+                          : theme === 'dark'
+                            ? 'border-gray-500'
+                            : 'border-gray-300'
+                      } transition-colors duration-200 flex flex-col justify-between p-2`}
                       style={{ width: panel.width, height: panel.height }}
                     >
+                      {/* Feature 2: Text box in panels */}
+                      <textarea
+                        value={panel.text}
+                        onChange={(e) => handlePanelTextChange(panel.id, e.target.value)}
+                        placeholder="Type text"
+                        className={`w-full h-full p-1 bg-transparent border-none outline-none text-sm resize-none ${
+                          theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
+                        }`}
+                        onClick={(e) => e.stopPropagation()} // Prevent selecting panel when clicking textarea
+                      />
+
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
+                        {/* The trash icon now calls removeSelectedPanel */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            removePanel(panel.id);
+                            removeSelectedPanel(); // Calls the function to delete only the selected panel
                           }}
                           className={`p-1.5 rounded-md ${
                             theme === 'dark'
@@ -471,23 +575,7 @@ export default function DrawingCanvas() {
                           <Trash2 size={14} />
                         </button>
                       </div>
-                      <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                        <button
-                          onClick={toggleMoveMode}
-                          className={`p-1.5 rounded-md ${
-                            moveMode
-                              ? theme === 'dark'
-                                ? 'bg-blue-600'
-                                : 'bg-blue-500'
-                              : theme === 'dark'
-                                ? 'bg-gray-600'
-                                : 'bg-gray-300'
-                          } text-white shadow-lg cursor-move transition-colors`}
-                        >
-                          <Move size={14} />
-                        </button>
-                      </div>
-                      <div 
+                      <div
                         className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -534,6 +622,12 @@ export default function DrawingCanvas() {
                           </span>
                         )}
                       </div>
+
+                      {/* Bottom-right resize handle */}
+                      <div
+                        className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-nwse-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                        onMouseDown={(e) => handleMouseDownResize(e, panel)}
+                      />
                     </div>
                   </div>
                 </div>
