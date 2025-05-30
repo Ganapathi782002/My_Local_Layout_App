@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useReducer } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { Moon, Sun, Plus, Trash2, Settings, Download, Upload, Save } from 'lucide-react'; // Removed LineChart, SlidersHorizontal, Gauge
+import { Moon, Sun, Plus, Trash2, Settings, Download, Upload, Save, RotateCcw, RotateCw } from 'lucide-react';
 import Draggable from 'react-draggable';
 import html2canvas from 'html2canvas';
 
@@ -11,7 +11,7 @@ interface Panel {
   width: number;
   height: number;
   zIndex: number;
-  text: string; // Added for Feature 2: Text box in panels
+  text: string;
 }
 
 interface CanvasConfig {
@@ -24,24 +24,192 @@ interface CanvasConfig {
   showGrid: boolean;
 }
 
+interface CanvasState {
+  config: CanvasConfig;
+  hasUnsavedChanges: boolean;
+  history: CanvasConfig[];
+  historyIndex: number;
+}
+
+type CanvasAction =
+  | { type: 'ADD_PANEL'; payload: Panel }
+  | { type: 'UPDATE_PANEL_POSITION'; payload: { id: string; x: number; y: number } }
+  | { type: 'UPDATE_PANEL_DIMENSIONS'; payload: { id: string; width: number; height: number } }
+  | { type: 'UPDATE_PANEL_TEXT'; payload: { id: string; text: string } }
+  | { type: 'REMOVE_PANELS'; payload: string[] }
+  | { type: 'SET_CANVAS_DIMENSIONS'; payload: { width: number; height: number } }
+  | { type: 'SET_CANVAS_COLORS'; payload: { bgColor: string; fgColor: string } }
+  | { type: 'TOGGLE_ROUNDED_CORNERS' }
+  | { type: 'TOGGLE_GRID' }
+  | { type: 'LOAD_CONFIG'; payload: CanvasConfig }
+  | { type: 'MARK_AS_SAVED' }
+  | { type: 'UNDO' }
+  | { type: 'REDO' };
+
+const initialCanvasConfig: CanvasConfig = {
+  panels: [],
+  canvasWidth: 1280,
+  canvasHeight: 720,
+  canvasBgColor: '#ffffff',
+  canvasFgColor: '#000000',
+  roundedCorners: true,
+  showGrid: false,
+};
+
+const initialState: CanvasState = {
+  config: initialCanvasConfig,
+  hasUnsavedChanges: false,
+  history: [initialCanvasConfig], // Initial state in history
+  historyIndex: 0,
+};
+
+function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
+  let newConfig: CanvasConfig | null = null; // Initialize as null, will be set for modification actions
+
+  switch (action.type) {
+    case 'ADD_PANEL':
+      newConfig = {
+        ...state.config,
+        panels: [...state.config.panels, action.payload],
+      };
+      break;
+    case 'UPDATE_PANEL_POSITION':
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.map(p =>
+          p.id === action.payload.id ? { ...p, x: action.payload.x, y: action.payload.y } : p
+        ),
+      };
+      break;
+    case 'UPDATE_PANEL_DIMENSIONS':
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.map(p =>
+          p.id === action.payload.id ? { ...p, width: action.payload.width, height: action.payload.height } : p
+        ),
+      };
+      break;
+    case 'UPDATE_PANEL_TEXT':
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.map(p =>
+          p.id === action.payload.id ? { ...p, text: action.payload.text } : p
+        ),
+      };
+      break;
+    case 'REMOVE_PANELS':
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.filter(panel => !action.payload.includes(panel.id)),
+      };
+      break;
+    case 'SET_CANVAS_DIMENSIONS':
+      newConfig = {
+        ...state.config,
+        canvasWidth: action.payload.width,
+        canvasHeight: action.payload.height,
+      };
+      break;
+    case 'SET_CANVAS_COLORS':
+      newConfig = {
+        ...state.config,
+        canvasBgColor: action.payload.bgColor,
+        canvasFgColor: action.payload.fgColor,
+      };
+      break;
+    case 'TOGGLE_ROUNDED_CORNERS':
+      newConfig = {
+        ...state.config,
+        roundedCorners: !state.config.roundedCorners,
+      };
+      break;
+    case 'TOGGLE_GRID':
+      newConfig = {
+        ...state.config,
+        showGrid: !state.config.showGrid,
+      };
+      break;
+
+    case 'LOAD_CONFIG':
+      // When loading, clear history and set initial state
+      return {
+        config: action.payload,
+        hasUnsavedChanges: false,
+        history: [action.payload],
+        historyIndex: 0,
+      };
+    case 'MARK_AS_SAVED':
+      // When saved, reset hasUnsavedChanges and clear future history
+      return {
+        ...state,
+        hasUnsavedChanges: false,
+        history: [state.config], // Reset history to current config
+        historyIndex: 0,
+      };
+    case 'UNDO':
+      const newHistoryIndexUndo = Math.max(0, state.historyIndex - 1);
+      return {
+        ...state,
+        config: state.history[newHistoryIndexUndo],
+        historyIndex: newHistoryIndexUndo,
+        hasUnsavedChanges: newHistoryIndexUndo !== 0, // Assume unsaved if not at initial history state
+      };
+    case 'REDO':
+      const newHistoryIndexRedo = Math.min(state.history.length - 1, state.historyIndex + 1);
+      return {
+        ...state,
+        config: state.history[newHistoryIndexRedo],
+        historyIndex: newHistoryIndexRedo,
+        hasUnsavedChanges: newHistoryIndexRedo !== 0,
+      };
+    default:
+      // Fallback for unhandled actions (should not be reached if all actions are typed)
+      return state;
+  }
+
+  // This block will only be reached by modification actions (where newConfig was set)
+  // and which did not return early (like UNDO/REDO/LOAD/SAVE).
+  if (newConfig && JSON.stringify(newConfig) !== JSON.stringify(state.config)) {
+    const newHistory = state.history.slice(0, state.historyIndex + 1); // Discard future history
+    newHistory.push(newConfig);
+    
+    // Limit history size to prevent memory issues, e.g., last 100 states
+    const HISTORY_LIMIT = 100;
+    if (newHistory.length > HISTORY_LIMIT) {
+        newHistory.splice(0, newHistory.length - HISTORY_LIMIT); // Remove oldest items
+    }
+    
+    return {
+      config: newConfig,
+      hasUnsavedChanges: true,
+      history: newHistory,
+      historyIndex: newHistory.length - 1, // Always point to the last item after push
+    };
+  } else {
+    // If newConfig is null (unhandled action) or config didn't actually change,
+    // return the current state without modifying history or unsaved changes.
+    return state;
+  }
+}
+
+
 export default function DrawingCanvas() {
   const { theme, toggleTheme } = useTheme();
-  const [panels, setPanels] = useState<Panel[]>([]);
-  const [selectedPanel, setSelectedPanel] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(canvasReducer, initialState);
+
+  // Destructure config and other states for easier access
+  const { config, hasUnsavedChanges, history, historyIndex } = state;
+  const { panels, canvasWidth, canvasHeight, canvasBgColor, canvasFgColor, roundedCorners, showGrid } = config;
+
+  // Local UI states (not part of undo/redo history, still managed by useState)
+  const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
   const [editingPanel, setEditingPanel] = useState<string | null>(null);
   const [newWidth, setNewWidth] = useState('');
   const [newHeight, setNewHeight] = useState('');
-  const [canvasWidth, setCanvasWidth] = useState(1280);
-  const [canvasHeight, setCanvasHeight] = useState(720);
   const [isEditingCanvas, setIsEditingCanvas] = useState(false);
   const [newCanvasWidth, setNewCanvasWidth] = useState('');
   const [newCanvasHeight, setNewCanvasHeight] = useState('');
-  const [canvasBgColor, setCanvasBgColor] = useState('#ffffff');
-  const [canvasFgColor, setCanvasFgColor] = useState('#000000');
-  const [roundedCorners, setRoundedCorners] = useState(true);
-  const [showGrid, setShowGrid] = useState(false);
 
-  // New states and refs for resizing functionality
   const [isResizing, setIsResizing] = useState(false);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const initialX = useRef(0);
@@ -49,12 +217,26 @@ export default function DrawingCanvas() {
   const initialWidth = useRef(0);
   const initialHeight = useRef(0);
 
-  // New state for Feature 3: Copy-paste panels
-  const [copiedPanelData, setCopiedPanelData] = useState<Panel | null>(null);
+  const [copiedPanelData, setCopiedPanelData] = useState<Panel[] | null>(null);
 
-  // New functions for resizing
+  // Effect to manage "Save your changes" alert on browser tab/window close
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        event.preventDefault();
+        event.returnValue = ''; // Standard way to trigger the confirmation dialog
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
   const handleMouseDownResize = (e: React.MouseEvent, panel: Panel) => {
-    e.stopPropagation(); // Prevent dragging from starting when clicking resize handle
+    e.stopPropagation();
     setIsResizing(true);
     setActivePanelId(panel.id);
     initialX.current = e.clientX;
@@ -69,16 +251,13 @@ export default function DrawingCanvas() {
     const deltaX = e.clientX - initialX.current;
     const deltaY = e.clientY - initialY.current;
 
-    setPanels(prevPanels =>
-      prevPanels.map(p => {
-        if (p.id === activePanelId) {
-          const newWidth = Math.max(50, initialWidth.current + deltaX); // Minimum width of 50px
-          const newHeight = Math.max(50, initialHeight.current + deltaY); // Minimum height of 50px
-          return { ...p, width: newWidth, height: newHeight };
-        }
-        return p;
-      })
-    );
+    const newWidth = Math.max(50, initialWidth.current + deltaX);
+    const newHeight = Math.max(50, initialHeight.current + deltaY);
+
+    dispatch({
+      type: 'UPDATE_PANEL_DIMENSIONS',
+      payload: { id: activePanelId, width: newWidth, height: newHeight },
+    });
   };
 
   const handleMouseUpResize = () => {
@@ -86,7 +265,6 @@ export default function DrawingCanvas() {
     setActivePanelId(null);
   };
 
-  // Effect to add/remove global mouse event listeners for resizing
   useEffect(() => {
     if (isResizing) {
       window.addEventListener('mousemove', handleMouseMoveResize);
@@ -100,33 +278,57 @@ export default function DrawingCanvas() {
       window.removeEventListener('mousemove', handleMouseMoveResize);
       window.removeEventListener('mouseup', handleMouseUpResize);
     };
-  }, [isResizing, activePanelId]); // Re-run effect when resizing state or active panel changes
+  }, [isResizing, activePanelId]);
 
-  // Effect for Feature 3: Copy-paste keyboard events
+  const removeSelectedPanels = useCallback(() => {
+    if (selectedPanels.length > 0) {
+      dispatch({ type: 'REMOVE_PANELS', payload: selectedPanels });
+      setSelectedPanels([]);
+    }
+  }, [selectedPanels, dispatch]); // Added dispatch to dependency array
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey)) { // Ctrl for Windows/Linux, Meta for Mac
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        if (selectedPanels.length > 0) {
+          removeSelectedPanels();
+        }
+      }
+
+      if ((e.ctrlKey || e.metaKey)) {
         if (e.key === 'c') {
-          if (selectedPanel) {
-            const panelToCopy = panels.find(p => p.id === selectedPanel);
-            if (panelToCopy) {
-              setCopiedPanelData(panelToCopy);
+          if (selectedPanels.length > 0) {
+            const panelsToCopy = panels.filter(p => selectedPanels.includes(p.id));
+            if (panelsToCopy.length > 0) {
+              setCopiedPanelData(panelsToCopy);
             }
           }
         } else if (e.key === 'v') {
-          e.preventDefault(); // Prevent default browser paste behavior
-          if (copiedPanelData) {
-            const newId = crypto.randomUUID();
+          e.preventDefault();
+          if (copiedPanelData && copiedPanelData.length > 0) {
             const maxZIndex = panels.length > 0 ? Math.max(...panels.map(p => p.zIndex)) : 0;
-            const newPanel: Panel = { // Explicitly type as Panel
-              ...copiedPanelData,
-              id: newId,
-              x: copiedPanelData.x + 20, // Offset for visibility
-              y: copiedPanelData.y + 20, // Offset for visibility
-              zIndex: maxZIndex + 1, // Bring to front
-            };
-            setPanels(prev => [...prev, newPanel]);
-            setSelectedPanel(newId); // Select the newly pasted panel
+            const newSelectedIds: string[] = [];
+
+            copiedPanelData.forEach((copiedPanel, index) => {
+              const newId = crypto.randomUUID();
+              const newPanel: Panel = {
+                ...copiedPanel,
+                id: newId,
+                x: copiedPanel.x + 20 * (index + 1), // Offset to see the new panel
+                y: copiedPanel.y + 20 * (index + 1),
+                zIndex: maxZIndex + 1 + index,
+              };
+              dispatch({ type: 'ADD_PANEL', payload: newPanel });
+              newSelectedIds.push(newId);
+            });
+            setSelectedPanels(newSelectedIds);
+          }
+        } else if (e.key === 'z') {
+          if (e.shiftKey) {
+            dispatch({ type: 'REDO' }); // Ctrl+Shift+Z for Redo
+          } else {
+            dispatch({ type: 'UNDO' }); // Ctrl+Z for Undo
           }
         }
       }
@@ -137,43 +339,35 @@ export default function DrawingCanvas() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedPanel, copiedPanelData, panels]); // Dependencies for keyboard events
+  }, [selectedPanels, copiedPanelData, panels, removeSelectedPanels, dispatch]); // Added dispatch to dependency array
 
   const addPanel = () => {
-    const canvas = document.querySelector('.canvas-container');
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const x = rect.width / 2 - 200; // Center horizontally
-      const y = rect.height / 2 - 100; // Center vertically
+    const canvasEl = document.querySelector('.canvas-container');
+    if (canvasEl) {
+      const rect = canvasEl.getBoundingClientRect();
+      const x = rect.width / 2 - 200;
+      const y = rect.height / 2 - 100;
       const maxZIndex = panels.length > 0
         ? Math.max(...panels.map(p => p.zIndex))
         : 0;
-      setPanels(prev => [...prev, {
-        id: crypto.randomUUID(),
+      const newPanelId = crypto.randomUUID();
+      const newPanel: Panel = {
+        id: newPanelId,
         x,
         y,
-        width: 400, // Default width
-        height: 200, // Default height
+        width: 400,
+        height: 200,
         zIndex: maxZIndex + 1,
-        text: '', // Feature 2: Initialize text
-      }]);
+        text: '',
+      };
+      dispatch({ type: 'ADD_PANEL', payload: newPanel });
+      setSelectedPanels([newPanelId]);
     }
   };
 
-  // Feature 1: Modified removePanel to only delete the specified ID.
-  const removeSelectedPanel = () => {
-    if (selectedPanel) {
-      setPanels(prev => prev.filter(panel => panel.id !== selectedPanel));
-      setSelectedPanel(null); // Deselect the panel after removal
-    }
-  };
-
-  const handleDragStop = (id: string, e: any, data: { x: number; y: number }) => {
-    // Only update position if not currently resizing
+  const handleDragStop = (id: string, _e: any, data: { x: number; y: number }) => {
     if (!isResizing) {
-      setPanels(prev => prev.map(panel =>
-        panel.id === id ? { ...panel, x: data.x, y: data.y } : panel
-      ));
+      dispatch({ type: 'UPDATE_PANEL_POSITION', payload: { id, x: data.x, y: data.y } });
     }
   };
 
@@ -188,9 +382,7 @@ export default function DrawingCanvas() {
     const height = parseInt(newHeight);
 
     if (!isNaN(width) && !isNaN(height) && width >= 50 && height >= 50) {
-      setPanels(prev => prev.map(panel =>
-        panel.id === id ? { ...panel, width, height } : panel
-      ));
+      dispatch({ type: 'UPDATE_PANEL_DIMENSIONS', payload: { id, width, height } });
     }
     setEditingPanel(null);
   };
@@ -214,8 +406,7 @@ export default function DrawingCanvas() {
     const height = parseInt(newCanvasHeight);
 
     if (!isNaN(width) && !isNaN(height) && width >= 200 && height >= 200) {
-      setCanvasWidth(width);
-      setCanvasHeight(height);
+      dispatch({ type: 'SET_CANVAS_DIMENSIONS', payload: { width, height } });
     }
     setIsEditingCanvas(false);
   };
@@ -233,19 +424,20 @@ export default function DrawingCanvas() {
     if (canvas) {
       html2canvas(canvas as HTMLElement, {
         backgroundColor: canvasBgColor,
-        scale: 2, // Higher quality
+        scale: 2,
         logging: false,
       }).then((canvas: HTMLCanvasElement) => {
         const link = document.createElement('a');
         link.download = 'panel-drawing.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
+        dispatch({ type: 'MARK_AS_SAVED' });
       });
     }
   };
 
   const exportConfig = () => {
-    const config: CanvasConfig = {
+    const configToExport: CanvasConfig = {
       panels,
       canvasWidth,
       canvasHeight,
@@ -255,7 +447,7 @@ export default function DrawingCanvas() {
       showGrid
     };
 
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(configToExport, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -264,6 +456,7 @@ export default function DrawingCanvas() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    dispatch({ type: 'MARK_AS_SAVED' });
   };
 
   const importConfig = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,16 +465,11 @@ export default function DrawingCanvas() {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const config: CanvasConfig = JSON.parse(e.target?.result as string);
-          // Ensure imported panels have 'text' property, default to empty string if missing
-          const importedPanels = config.panels.map(p => ({ ...p, text: p.text || '' }));
-          setPanels(importedPanels);
-          setCanvasWidth(config.canvasWidth);
-          setCanvasHeight(config.canvasHeight);
-          setCanvasBgColor(config.canvasBgColor);
-          setCanvasFgColor(config.canvasFgColor);
-          setRoundedCorners(config.roundedCorners);
-          setShowGrid(config.showGrid);
+          const importedConfig: CanvasConfig = JSON.parse(e.target?.result as string);
+          // Ensure imported panels have 'text' property
+          importedConfig.panels = importedConfig.panels.map(p => ({ ...p, text: p.text || '' }));
+          dispatch({ type: 'LOAD_CONFIG', payload: importedConfig });
+          setSelectedPanels([]);
         } catch (error) {
           console.error('Error importing configuration:', error);
           alert('Error importing configuration. Please check the file format.');
@@ -291,13 +479,21 @@ export default function DrawingCanvas() {
     }
   };
 
-  // Feature 2: Handler for text input in panels
   const handlePanelTextChange = (id: string, newText: string) => {
-    setPanels(prevPanels =>
-      prevPanels.map(p =>
-        p.id === id ? { ...p, text: newText } : p
-      )
-    );
+    dispatch({ type: 'UPDATE_PANEL_TEXT', payload: { id, text: newText } });
+  };
+
+  const handlePanelClick = (e: React.MouseEvent, panelId: string) => {
+    e.stopPropagation();
+    if (e.shiftKey) {
+      setSelectedPanels(prev =>
+        prev.includes(panelId)
+          ? prev.filter(id => id !== panelId)
+          : [...prev, panelId]
+      );
+    } else {
+      setSelectedPanels([panelId]);
+    }
   };
 
   return (
@@ -317,6 +513,30 @@ export default function DrawingCanvas() {
               } text-white transition-colors`}
             >
               <Plus size={20} />
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'UNDO' })}
+              disabled={historyIndex === 0}
+              className={`p-2 rounded-lg ${
+                theme === 'dark'
+                  ? 'bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800'
+                  : 'bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300'
+              } text-white transition-colors disabled:cursor-not-allowed`}
+              title="Undo (Ctrl+Z)"
+            >
+              <RotateCcw size={20} />
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'REDO' })}
+              disabled={historyIndex === history.length - 1}
+              className={`p-2 rounded-lg ${
+                theme === 'dark'
+                  ? 'bg-gray-600 hover:bg-gray-700 disabled:bg-gray-800'
+                  : 'bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300'
+              } text-white transition-colors disabled:cursor-not-allowed`}
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <RotateCw size={20} />
             </button>
             <button
               onClick={exportConfig}
@@ -363,16 +583,15 @@ export default function DrawingCanvas() {
             >
               <Settings size={20} />
             </button>
-            {/* Feature 1: Delete selected panel only */}
             <button
-              onClick={removeSelectedPanel}
-              disabled={!selectedPanel} // Disable if no panel is selected
+              onClick={removeSelectedPanels}
+              disabled={selectedPanels.length === 0}
               className={`p-2 rounded-lg ${
                 theme === 'dark'
                   ? 'bg-red-600 hover:bg-red-700 disabled:bg-red-800'
                   : 'bg-red-500 hover:bg-red-600 disabled:bg-red-300'
               } text-white transition-colors disabled:cursor-not-allowed`}
-              title={selectedPanel ? "Delete selected panel" : "No panel selected"}
+              title={selectedPanels.length > 0 ? "Delete selected panel(s)" : "No panel selected"}
             >
               <Trash2 size={20} />
             </button>
@@ -403,8 +622,7 @@ export default function DrawingCanvas() {
                 linear-gradient(90deg, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} 1px, transparent 1px)` : 'none',
               backgroundSize: showGrid ? '20px 20px' : 'auto'
             }}
-            // Added onClick to deselect panels when clicking on canvas background
-            onClick={() => setSelectedPanel(null)}
+            onClick={() => setSelectedPanels([])}
           >
             {isEditingCanvas && (
               <div className="absolute top-4 right-4 z-30 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-xl border dark:border-gray-700">
@@ -448,7 +666,7 @@ export default function DrawingCanvas() {
                       <input
                         type="color"
                         value={canvasBgColor}
-                        onChange={(e) => setCanvasBgColor(e.target.value)}
+                        onChange={(e) => dispatch({ type: 'SET_CANVAS_COLORS', payload: { bgColor: e.target.value, fgColor: canvasFgColor } })}
                         className="w-8 h-8 rounded cursor-pointer"
                       />
                     </div>
@@ -459,7 +677,7 @@ export default function DrawingCanvas() {
                       <input
                         type="color"
                         value={canvasFgColor}
-                        onChange={(e) => setCanvasFgColor(e.target.value)}
+                        onChange={(e) => dispatch({ type: 'SET_CANVAS_COLORS', payload: { bgColor: canvasBgColor, fgColor: e.target.value } })}
                         className="w-8 h-8 rounded cursor-pointer"
                       />
                     </div>
@@ -469,7 +687,7 @@ export default function DrawingCanvas() {
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                     }`}>Rounded Corners</label>
                     <button
-                      onClick={() => setRoundedCorners(!roundedCorners)}
+                      onClick={() => dispatch({ type: 'TOGGLE_ROUNDED_CORNERS' })}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         roundedCorners
                           ? theme === 'dark'
@@ -492,7 +710,7 @@ export default function DrawingCanvas() {
                       theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                     }`}>Show Grid</label>
                     <button
-                      onClick={() => setShowGrid(!showGrid)}
+                      onClick={() => dispatch({ type: 'TOGGLE_GRID' })}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         showGrid
                           ? theme === 'dark'
@@ -519,17 +737,14 @@ export default function DrawingCanvas() {
                 position={{ x: panel.x, y: panel.y }}
                 onStop={(e, data) => handleDragStop(panel.id, e, data)}
                 bounds="parent"
-                disabled={isResizing} // Disable dragging while resizing
+                disabled={isResizing}
               >
                 <div
                   className={`absolute ${
-                    selectedPanel === panel.id ? 'z-10' : 'z-0'
+                    selectedPanels.includes(panel.id) ? 'z-10' : 'z-0'
                   }`}
                   style={{ zIndex: panel.zIndex }}
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent deselecting canvas when clicking panel
-                    setSelectedPanel(panel.id);
-                  }}
+                  onClick={(e) => handlePanelClick(e, panel.id)}
                 >
                   <div className="relative group">
                     <div
@@ -540,15 +755,14 @@ export default function DrawingCanvas() {
                           ? 'bg-gray-700 shadow-xl shadow-gray-900/70'
                           : 'bg-white shadow-xl shadow-gray-300/70'
                       } border-2 ${
-                        selectedPanel === panel.id
-                          ? 'border-green-500 border-dotted' // Green dotted border for selected panels
+                        selectedPanels.includes(panel.id)
+                          ? 'border-green-500 border-dotted'
                           : theme === 'dark'
                             ? 'border-gray-500'
                             : 'border-gray-300'
                       } transition-colors duration-200 flex flex-col justify-between p-2`}
                       style={{ width: panel.width, height: panel.height }}
                     >
-                      {/* Feature 2: Text box in panels */}
                       <textarea
                         value={panel.text}
                         onChange={(e) => handlePanelTextChange(panel.id, e.target.value)}
@@ -556,21 +770,22 @@ export default function DrawingCanvas() {
                         className={`w-full h-full p-1 bg-transparent border-none outline-none text-sm resize-none ${
                           theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
                         }`}
-                        onClick={(e) => e.stopPropagation()} // Prevent selecting panel when clicking textarea
+                        onClick={(e) => e.stopPropagation()}
                       />
 
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                        {/* The trash icon now calls removeSelectedPanel */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeSelectedPanel(); // Calls the function to delete only the selected panel
+                            setSelectedPanels([panel.id]);
+                            setTimeout(() => removeSelectedPanels(), 0);
                           }}
                           className={`p-1.5 rounded-md ${
                             theme === 'dark'
                               ? 'bg-red-600 hover:bg-red-700'
                               : 'bg-red-500 hover:bg-red-600'
                           } text-white shadow-lg`}
+                          title="Delete this panel"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -623,7 +838,6 @@ export default function DrawingCanvas() {
                         )}
                       </div>
 
-                      {/* Bottom-right resize handle */}
                       <div
                         className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-nwse-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         onMouseDown={(e) => handleMouseDownResize(e, panel)}
