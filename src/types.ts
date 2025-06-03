@@ -1,3 +1,5 @@
+export type ShapeType = 'rectangle' | 'circle' ;
+
 export interface PanelInterface {
   id: string;
   x: number;
@@ -6,6 +8,11 @@ export interface PanelInterface {
   height: number;
   zIndex: number;
   text: string;
+  shapeType: ShapeType; 
+  backgroundColor: string;
+  borderColor: string;
+  borderWidth: number;
+  borderStyle: string;
 }
 
 export interface CanvasConfig {
@@ -38,10 +45,11 @@ export type CanvasAction =
   | { type: 'SET_CANVAS_COLORS'; payload: { bgColor: string; fgColor: string } }
   | { type: 'TOGGLE_ROUNDED_CORNERS' }
   | { type: 'TOGGLE_GRID' }
-  | { type: 'TOGGLE_THEME' } // Add this action if you're managing theme via reducer
+  | { type: 'TOGGLE_THEME' }
   | { type: 'LOAD_CONFIG'; payload: CanvasConfig }
   | { type: 'MARK_AS_SAVED' }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'COPY_PANELS'; payload: { ids: string[] } }
-  | { type: 'PASTE_PANELS'; payload?: { offset?: number; zIndex?: number } };
+  | { type: 'PASTE_PANELS'; payload?: { offset?: number; zIndex?: number } }
+  | { type: 'UPDATE_PANEL_STYLE'; payload: { id: string; styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType'>> } };

@@ -1,223 +1,166 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Draggable, { DraggableEventHandler } from 'react-draggable';
-import { Trash2 } from 'lucide-react';
-import type { PanelInterface } from '../types';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
+import { PanelInterface } from '../types';
 
 interface PanelProps {
   panel: PanelInterface;
-  theme: 'light' | 'dark';
   isSelected: boolean;
-  isEditingDimensions: boolean;
-  roundedCorners: boolean;
-  onDragStop: (id: string, x: number, y: number) => void;
+  onSelect: (id: string, event: React.MouseEvent) => void;
+  onUpdatePosition: (id: string, x: number, y: number) => void;
   onUpdateDimensions: (id: string, width: number, height: number) => void;
   onUpdateText: (id: string, text: string) => void;
-  onSelectPanel: (e: React.MouseEvent, panelId: string) => void;
-  onDeletePanel: (panelId: string) => void;
-  onDimensionClick: (panel: PanelInterface) => void;
-  onDimensionSubmit: (panelId: string, newWidth: string, newHeight: string) => void;
-  onDimensionCancel: () => void;
+  onUpdateStyle: (id: string, styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType'>>) => void;
+  canvasWidth: number;
+  canvasHeight: number;
+  canvasFgColor: string;
+  roundedCorners: boolean;
+  theme: 'light' | 'dark';
+  onInteractionStart: (panelId: string, event: React.MouseEvent, type: 'drag' | 'resize') => void;
 }
 
-const Panel: React.FC<PanelProps> = ({
+export const Panel: React.FC<PanelProps> = ({
   panel,
-  theme,
   isSelected,
-  isEditingDimensions,
-  roundedCorners,
-  onDragStop,
+  onSelect,
+  onUpdatePosition,
   onUpdateDimensions,
   onUpdateText,
-  onSelectPanel,
-  onDeletePanel,
-  onDimensionClick,
-  onDimensionSubmit,
-  onDimensionCancel,
+  onUpdateStyle,
+  canvasWidth,
+  canvasHeight,
+  canvasFgColor,
+  roundedCorners,
+  theme,
+  onInteractionStart,
 }) => {
-  const [newWidth, setNewWidth] = useState(panel.width.toString());
-  const [newHeight, setNewHeight] = useState(panel.height.toString());
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [editingText, setEditingText] = useState(false);
 
-  const [isResizing, setIsResizing] = useState(false);
-  const initialX = useRef(0);
-  const initialY = useRef(0);
-  const initialWidth = useRef(0);
-  const initialHeight = useRef(0);
+  const panelClasses = useMemo(() => {
+    let classes = `absolute group flex items-center justify-center cursor-move transition-all duration-100 ease-out`;
 
-  const handleMouseDownResize = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsResizing(true);
-    initialX.current = e.clientX;
-    initialY.current = e.clientY;
-    initialWidth.current = panel.width;
-    initialHeight.current = panel.height;
-  };
+    switch (panel.shapeType) {
+      case 'circle':
+        classes += ' rounded-full';
+        break;
+      case 'rectangle':
+      default:
+        if (roundedCorners) {
+          classes += ' rounded-lg';
+        }
+        break;
+    }
 
-  const handleMouseMoveResize = useCallback((e: MouseEvent) => {
-    if (!isResizing) return;
+    if (isSelected) {
+      classes += ` z-50 ${theme === 'dark' ? 'ring-2 ring-blue-400' : 'ring-2 ring-blue-500'}`;
+    } else {
+      classes += ' z-20';
+    }
 
-    const deltaX = e.clientX - initialX.current;
-    const deltaY = e.clientY - initialY.current;
+    return classes;
+  }, [panel.shapeType, isSelected, roundedCorners, theme]);
 
-    const newW = Math.max(50, initialWidth.current + deltaX);
-    const newH = Math.max(50, initialHeight.current + deltaY);
+  const panelInlineStyles = useMemo(() => {
+    const styles: React.CSSProperties = {
+      left: panel.x,
+      top: panel.y,
+      width: panel.width,
+      height: panel.height,
+      zIndex: isSelected ? 50 : panel.zIndex,
+      backgroundColor: panel.backgroundColor,
+      borderColor: panel.borderColor,
+      borderWidth: panel.borderWidth,
+      borderStyle: panel.borderStyle,
+      color: canvasFgColor,
+    };
 
-    onUpdateDimensions(panel.id, newW, newH);
-  }, [isResizing, panel.id, initialWidth, initialHeight, onUpdateDimensions]);
+    return styles;
+  }, [panel, isSelected, canvasFgColor]);
 
 
-  const handleMouseUpResize = useCallback(() => {
-    setIsResizing(false);
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+
+    if (e.target instanceof HTMLTextAreaElement) {
+        setEditingText(true);
+        return;
+    }
+
+    // --- MODIFIED: Delegate interaction start to DrawingCanvas ---
+    const target = e.target as HTMLElement;
+    if (target.dataset.resizer) {
+        onInteractionStart(panel.id, e, 'resize');
+    } else {
+        onInteractionStart(panel.id, e, 'drag');
+    }
+  }, [panel.id, onInteractionStart]);
+
+  const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onUpdateText(panel.id, e.target.value);
+  }, [panel.id, onUpdateText]);
+
+  const handleTextareaFocus = useCallback(() => {
+    setEditingText(true);
   }, []);
 
-  useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', handleMouseMoveResize);
-      window.addEventListener('mouseup', handleMouseUpResize);
-    } else {
-      window.removeEventListener('mousemove', handleMouseMoveResize);
-      window.removeEventListener('mouseup', handleMouseUpResize);
-    }
+  const handleTextareaBlur = useCallback(() => {
+    setEditingText(false);
+  }, [panel.id, panel.text, onUpdateText, panel.shapeType]);
 
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMoveResize);
-      window.removeEventListener('mouseup', handleMouseUpResize);
+  const innerContentStyle: React.CSSProperties = useMemo(() => {
+    const baseStyle: React.CSSProperties = {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+      height: '100%',
+      padding: panel.shapeType === 'circle' ? '10%' : '0px',
     };
-  }, [isResizing, handleMouseMoveResize, handleMouseUpResize]);
 
-  const handleKeyDownDimensions = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      onDimensionSubmit(panel.id, newWidth, newHeight);
-    } else if (e.key === 'Escape') {
-      onDimensionCancel();
-    }
-  };
-
-  const handleDrag: DraggableEventHandler = (_e, data) => {
-  };
-
-  const handleStop: DraggableEventHandler = (_e, data) => {
-    if (!isResizing) {
-      onDragStop(panel.id, data.x, data.y);
-    }
-  };
+    return baseStyle;
+  }, [panel.shapeType]);
 
 
   return (
-    <Draggable
-      position={{ x: panel.x, y: panel.y }}
-      onStop={handleStop}
-      onDrag={handleDrag}
-      bounds="parent"
-      disabled={isResizing}
+    <div
+      ref={panelRef}
+      className={panelClasses}
+      style={panelInlineStyles}
+      onMouseDown={handleMouseDown}
+      data-panel-id={panel.id}
     >
-      <div
-        className={`absolute ${isSelected ? 'z-10' : 'z-0'}`}
-        style={{ zIndex: panel.zIndex }}
-        onClick={(e) => onSelectPanel(e, panel.id)}
-      >
-        <div className="relative group">
-          <div
-            className={`${
-              roundedCorners ? 'rounded-lg' : ''
-            } ${
-              theme === 'dark'
-                ? 'bg-gray-700 shadow-xl shadow-gray-900/70'
-                : 'bg-white shadow-xl shadow-gray-300/70'
-            } border-2 ${
-              isSelected
-                ? 'border-green-500 border-dotted'
-                : theme === 'dark'
-                  ? 'border-gray-500'
-                  : 'border-gray-300'
-            } transition-colors duration-200 flex flex-col justify-between p-2`}
-            style={{ width: panel.width, height: panel.height }}
-          >
-            <textarea
-              value={panel.text}
-              onChange={(e) => onUpdateText(panel.id, e.target.value)}
-              placeholder="Type text"
-              className={`w-full h-full p-1 bg-transparent border-none outline-none text-sm resize-none ${
-                theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
-              }`}
-              onClick={(e) => e.stopPropagation()} // Prevent selection when clicking textarea
-            />
-
-            {/* Delete Button */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeletePanel(panel.id);
-                }}
-                className={`p-1.5 rounded-md ${
-                  theme === 'dark'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-red-500 hover:bg-red-600'
-                } text-white shadow-lg`}
-                title="Delete this panel"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-
-            <div
-              className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDimensionClick(panel);
-              }}
-            >
-              {isEditingDimensions ? (
-                <div className="flex gap-1 items-center">
-                  <input
-                    type="number"
-                    value={newWidth}
-                    onChange={(e) => setNewWidth(e.target.value)}
-                    onKeyDown={handleKeyDownDimensions}
-                    className={`w-12 h-6 text-xs font-mono rounded px-1 ${
-                      theme === 'dark'
-                        ? 'bg-gray-600 text-white border-gray-500'
-                        : 'bg-white text-gray-900 border-gray-300'
-                    } border`}
-                    min="50"
-                    max="400"
-                  />
-                  <span className={`text-xs font-mono ${
-                    theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                  }`}>×</span>
-                  <input
-                    type="number"
-                    value={newHeight}
-                    onChange={(e) => setNewHeight(e.target.value)}
-                    onKeyDown={handleKeyDownDimensions}
-                    className={`w-12 h-6 text-xs font-mono rounded px-1 ${
-                      theme === 'dark'
-                        ? 'bg-gray-600 text-white border-gray-500'
-                        : 'bg-white text-gray-900 border-gray-300'
-                    } border`}
-                    min="50"
-                    max="400"
-                  />
-                </div>
-              ) : (
-                <span className={`text-xs font-mono ${
-                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                }`}>
-                  {panel.width} × {panel.height}
-                </span>
-              )}
-            </div>
-
-            {/* Resize Handle */}
-            <div
-              className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-nwse-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              onMouseDown={handleMouseDownResize}
-            />
-          </div>
-        </div>
+      <div style={innerContentStyle}>
+        <textarea
+          className={`w-full h-full text-center p-2 outline-none resize-none font-mono text-sm leading-tight
+            ${theme === 'dark' ? 'bg-transparent text-white' : 'bg-transparent text-gray-900'}
+            ${isSelected || editingText ? 'pointer-events-auto' : 'pointer-events-none'}
+            ${!isSelected && !editingText && panel.text.trim() === '' ? 'text-transparent' : ''}
+          `}
+          style={{
+            color: canvasFgColor,
+            overflowY: 'auto',
+            cursor: 'text',
+            borderRadius: roundedCorners && (panel.shapeType === 'rectangle') ? '0.5rem' : '0',
+            padding: panel.shapeType === 'circle' ? '10%' : '0.5rem',
+            opacity: 1,
+          }}
+          value={panel.text}
+          onChange={handleTextChange}
+          onFocus={handleTextareaFocus}
+          onBlur={handleTextareaBlur}
+          placeholder={'Click to type'}
+        />
       </div>
-    </Draggable>
+
+      {isSelected && (
+        <div
+          data-resizer="true"
+          className={`absolute -bottom-3 -right-3 w-6 h-6 rounded-full cursor-nwse-resize
+            ${theme === 'dark' ? 'bg-blue-400' : 'bg-blue-500'}
+          `}
+          onMouseDown={handleMouseDown}
+        />
+      )}
+    </div>
   );
 };
-
-export default Panel;

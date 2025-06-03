@@ -1,4 +1,4 @@
-import { PanelInterface, CanvasConfig, CanvasState, CanvasAction } from '../types';
+import { PanelInterface, CanvasConfig, CanvasState, CanvasAction, ShapeType } from '../types';
 import { generateUniqueId } from '../utils/idGenerator';
 
 export const initialCanvasConfig: CanvasConfig = {
@@ -21,7 +21,7 @@ export const initialState: CanvasState = {
 };
 
 const HISTORY_LIMIT = 100;
-const PASTE_OFFSET = 20;
+const PASTE_OFFSET = 40;
 
 export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasState {
   let newConfig: CanvasConfig | null = null;
@@ -55,6 +55,14 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         ...state.config,
         panels: state.config.panels.map(p =>
           p.id === action.payload.id ? { ...p, text: action.payload.text } : p
+        ),
+      };
+      break;
+    case 'UPDATE_PANEL_STYLE':
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.map(p =>
+          p.id === action.payload.id ? { ...p, ...action.payload.styles } : p
         ),
       };
       break;
@@ -126,10 +134,24 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       break;
 
     case 'LOAD_CONFIG':
+      const loadedPanels: PanelInterface[] = action.payload.panels.map(p => ({
+        ...p,
+        shapeType: p.shapeType || 'textBlock' as ShapeType, 
+        backgroundColor: p.backgroundColor || '#ffffff',    
+        borderColor: p.borderColor || '#000000',          
+        borderWidth: p.borderWidth ?? 2,
+        borderStyle: p.borderStyle || 'solid',             
+        text: p.text || '',
+      }));
+
       return {
-        config: action.payload,
+        config: {
+          ...action.payload,
+          panels: loadedPanels,
+          theme: action.payload.theme || 'light',
+        },
         hasUnsavedChanges: false,
-        history: [action.payload],
+        history: [{ ...action.payload, panels: loadedPanels }],
         historyIndex: 0,
         copiedPanels: [],
       };
@@ -161,7 +183,6 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       return state;
   }
 
-  // Common logic for actions that modify config and history
   if (newConfig && JSON.stringify(newConfig) !== JSON.stringify(state.config)) {
     const newHistory = state.history.slice(0, state.historyIndex + 1);
     newHistory.push(newConfig);
@@ -179,10 +200,10 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       copiedPanels: newCopiedPanels !== null ? newCopiedPanels : state.copiedPanels,
     };
   } else if (newCopiedPanels !== null && JSON.stringify(newCopiedPanels) !== JSON.stringify(state.copiedPanels)) {
-      return {
-          ...state,
-          copiedPanels: newCopiedPanels,
-      };
+    return {
+      ...state,
+      copiedPanels: newCopiedPanels,
+    };
   } else {
     return state;
   }

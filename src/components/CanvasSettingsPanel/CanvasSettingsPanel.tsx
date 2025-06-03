@@ -66,7 +66,7 @@ const CanvasSettingsPanel: React.FC<CanvasSettingsPanelProps> = ({
       >
         <X size={20} />
       </button>
-      <h3 className={`text-lg font-semibold mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+      <h3 className={`text-lg font-semibold mb-4 ${theme === 'dark' ? 'text-black' : 'text-black-900'}`}>
         Canvas Settings
       </h3>
       <div className="space-y-4">
