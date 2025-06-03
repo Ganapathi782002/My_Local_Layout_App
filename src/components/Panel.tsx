@@ -12,7 +12,7 @@ interface PanelProps {
   canvasWidth: number;
   canvasHeight: number;
   canvasFgColor: string;
-  roundedCorners: boolean;
+  panelRoundedCorners: boolean; // RENAMED: from roundedCorners to panelRoundedCorners
   theme: 'light' | 'dark';
   onInteractionStart: (panelId: string, event: React.MouseEvent, type: 'drag' | 'resize') => void;
 }
@@ -28,7 +28,7 @@ export const Panel: React.FC<PanelProps> = ({
   canvasWidth,
   canvasHeight,
   canvasFgColor,
-  roundedCorners,
+  panelRoundedCorners, // RENAMED PROP
   theme,
   onInteractionStart,
 }) => {
@@ -44,7 +44,8 @@ export const Panel: React.FC<PanelProps> = ({
         break;
       case 'rectangle':
       default:
-        if (roundedCorners) {
+        // Use panelRoundedCorners here for rectangles/text blocks
+        if (panelRoundedCorners) {
           classes += ' rounded-lg';
         }
         break;
@@ -57,7 +58,7 @@ export const Panel: React.FC<PanelProps> = ({
     }
 
     return classes;
-  }, [panel.shapeType, isSelected, roundedCorners, theme]);
+  }, [panel.shapeType, isSelected, panelRoundedCorners, theme]); // DEPENDENCY UPDATED
 
   const panelInlineStyles = useMemo(() => {
     const styles: React.CSSProperties = {
@@ -85,7 +86,7 @@ export const Panel: React.FC<PanelProps> = ({
         return;
     }
 
-    // --- MODIFIED: Delegate interaction start to DrawingCanvas ---
+    // Delegate interaction start to DrawingCanvas
     const target = e.target as HTMLElement;
     if (target.dataset.resizer) {
         onInteractionStart(panel.id, e, 'resize');
@@ -104,7 +105,10 @@ export const Panel: React.FC<PanelProps> = ({
 
   const handleTextareaBlur = useCallback(() => {
     setEditingText(false);
-  }, [panel.id, panel.text, onUpdateText, panel.shapeType]);
+    // You might want to save/update text on blur if not already handled by onUpdateText
+    // If the text is empty after blur and it's not a new panel, you could revert to placeholder or default
+    // onUpdateText(panel.id, panel.text); // This line is likely redundant if onChange handles updates
+  }, []); // Removed panel.id, panel.text, onUpdateText, panel.shapeType as they are not used in blur logic itself, only in change
 
   const innerContentStyle: React.CSSProperties = useMemo(() => {
     const baseStyle: React.CSSProperties = {
@@ -140,7 +144,8 @@ export const Panel: React.FC<PanelProps> = ({
             color: canvasFgColor,
             overflowY: 'auto',
             cursor: 'text',
-            borderRadius: roundedCorners && (panel.shapeType === 'rectangle') ? '0.5rem' : '0',
+            // Apply border radius for rectangles based on panelRoundedCorners
+            borderRadius: panelRoundedCorners && (panel.shapeType === 'rectangle' || panel.shapeType === 'textBlock') ? '0.5rem' : '0',
             padding: panel.shapeType === 'circle' ? '10%' : '0.5rem',
             opacity: 1,
           }}

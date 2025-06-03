@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   Trash2,
-  Settings,
   Download,
   Upload,
   Save,
@@ -24,7 +23,8 @@ interface ToolbarProps {
   onExportConfig: () => void;
   onImportConfig: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onExportPNG: () => void;
-  onToggleCanvasSettings: () => void;
+  // REMOVED: onToggleCanvasSettings is no longer needed
+  // onToggleCanvasSettings: () => void;
   onRemoveSelectedPanels: () => void;
   onToggleTheme: () => void;
   onCopySelectedPanels: () => void;
@@ -44,7 +44,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onExportConfig,
   onImportConfig,
   onExportPNG,
-  onToggleCanvasSettings,
+  // REMOVED: Destructuring for onToggleCanvasSettings
+  // onToggleCanvasSettings,
   onRemoveSelectedPanels,
   onToggleTheme,
   onCopySelectedPanels,
@@ -55,7 +56,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
   isPasteDisabled,
   isDeleteDisabled,
 }) => {
-
   const [showCopiedTooltip, setShowCopiedTooltip] = useState(false);
   const handleCopyClick = () => {
     if (isCopyDisabled) return;
@@ -69,7 +69,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <div className="flex flex-col items-center mb-8 w-full">
       <h1
-        className={`text-2xl font-bold mb-4 ${ 
+        className={`text-2xl font-bold mb-4 ${
           theme === "dark" ? "text-white" : "text-gray-900"
         } text-center`}
       >
@@ -213,7 +213,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <Download size={20} />
         </button>
 
-        {/* Canvas Settings Button */}
+        {/* REMOVED: Canvas Settings Button
         <button
           onClick={onToggleCanvasSettings}
           className={`p-2 rounded-lg ${
@@ -225,6 +225,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Settings size={20} />
         </button>
+        */}
 
         {/* Delete Selected Panels Button */}
         <button

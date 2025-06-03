@@ -7,7 +7,10 @@ export const initialCanvasConfig: CanvasConfig = {
   canvasHeight: 720,
   canvasBgColor: '#ffffff',
   canvasFgColor: '#000000',
-  roundedCorners: true,
+  // Renamed from 'roundedCorners' to explicitly state its effect on panels
+  panelRoundedCorners: true, 
+  // New property for canvas specific border radius
+  canvasBorderRadius: 8, // Default to a small border radius for the canvas
   showGrid: false,
   theme: 'light',
 };
@@ -86,10 +89,18 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         canvasFgColor: action.payload.fgColor,
       };
       break;
-    case 'TOGGLE_ROUNDED_CORNERS':
+    // Renamed action to target panel rounded corners specifically
+    case 'TOGGLE_PANEL_ROUNDED_CORNERS':
       newConfig = {
         ...state.config,
-        roundedCorners: !state.config.roundedCorners,
+        panelRoundedCorners: !state.config.panelRoundedCorners,
+      };
+      break;
+    // New action to set canvas border radius
+    case 'SET_CANVAS_BORDER_RADIUS':
+      newConfig = {
+        ...state.config,
+        canvasBorderRadius: Math.max(0, action.payload.radius), // Ensure radius is not negative
       };
       break;
     case 'TOGGLE_GRID':
@@ -140,7 +151,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         backgroundColor: p.backgroundColor || '#ffffff',    
         borderColor: p.borderColor || '#000000',          
         borderWidth: p.borderWidth ?? 2,
-        borderStyle: p.borderStyle || 'solid',             
+        borderStyle: p.borderStyle || 'solid',            
         text: p.text || '',
       }));
 
@@ -149,9 +160,17 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
           ...action.payload,
           panels: loadedPanels,
           theme: action.payload.theme || 'light',
+          // Ensure new properties are present, with fallbacks for older config files
+          panelRoundedCorners: action.payload.panelRoundedCorners ?? true, // Default to true if not in payload
+          canvasBorderRadius: action.payload.canvasBorderRadius ?? 8, // Default to 8 if not in payload
         },
         hasUnsavedChanges: false,
-        history: [{ ...action.payload, panels: loadedPanels }],
+        history: [{ 
+            ...action.payload, 
+            panels: loadedPanels,
+            panelRoundedCorners: action.payload.panelRoundedCorners ?? true,
+            canvasBorderRadius: action.payload.canvasBorderRadius ?? 8,
+        }],
         historyIndex: 0,
         copiedPanels: [],
       };
@@ -168,6 +187,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         ...state,
         config: state.history[newHistoryIndexUndo],
         historyIndex: newHistoryIndexUndo,
+        // hasUnsavedChanges should be true if not at the very first state
         hasUnsavedChanges: newHistoryIndexUndo !== 0,
       };
     case 'REDO':
@@ -176,6 +196,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         ...state,
         config: state.history[newHistoryIndexRedo],
         historyIndex: newHistoryIndexRedo,
+        // hasUnsavedChanges should be true if not at the very first state (after an undo)
         hasUnsavedChanges: newHistoryIndexRedo !== 0,
       };
     default:
@@ -183,6 +204,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       return state;
   }
 
+  // Common logic for state updates that involve history (most cases)
   if (newConfig && JSON.stringify(newConfig) !== JSON.stringify(state.config)) {
     const newHistory = state.history.slice(0, state.historyIndex + 1);
     newHistory.push(newConfig);
@@ -200,6 +222,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       copiedPanels: newCopiedPanels !== null ? newCopiedPanels : state.copiedPanels,
     };
   } else if (newCopiedPanels !== null && JSON.stringify(newCopiedPanels) !== JSON.stringify(state.copiedPanels)) {
+    // This case only handles copiedPanels update without config change (e.g., just copying)
     return {
       ...state,
       copiedPanels: newCopiedPanels,

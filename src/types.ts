@@ -21,7 +21,10 @@ export interface CanvasConfig {
   canvasHeight: number;
   canvasBgColor: string;
   canvasFgColor: string;
-  roundedCorners: boolean;
+  // Renamed for clarity: now applies only to panels
+  panelRoundedCorners: boolean;
+  // New: for canvas specific border radius (numeric value in pixels)
+  canvasBorderRadius: number; 
   showGrid: boolean;
   theme: 'light' | 'dark';
 }
@@ -40,10 +43,13 @@ export type CanvasAction =
   | { type: 'UPDATE_PANEL_POSITION'; payload: { id: string; x: number; y: number } }
   | { type: 'UPDATE_PANEL_DIMENSIONS'; payload: { id: string; width: number; height: number } }
   | { type: 'UPDATE_PANEL_TEXT'; payload: { id: string; text: string } }
-  | { type: 'DELETE_PANELS'; payload: { ids: string[] } } // Payloads should match the reducer's expectations
+  | { type: 'DELETE_PANELS'; payload: { ids: string[] } }
   | { type: 'SET_CANVAS_DIMENSIONS'; payload: { width: number; height: number } }
   | { type: 'SET_CANVAS_COLORS'; payload: { bgColor: string; fgColor: string } }
-  | { type: 'TOGGLE_ROUNDED_CORNERS' }
+  // Renamed action to specifically toggle panel rounded corners
+  | { type: 'TOGGLE_PANEL_ROUNDED_CORNERS' }
+  // New action to set the canvas's border radius
+  | { type: 'SET_CANVAS_BORDER_RADIUS'; payload: { radius: number } }
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_THEME' }
   | { type: 'LOAD_CONFIG'; payload: CanvasConfig }
