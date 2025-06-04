@@ -1,4 +1,4 @@
-export type ShapeType = 'rectangle' | 'circle' | 'textBlock';
+export type ShapeType = 'rectangle' | 'circle' | 'textBlock' | 'triangle' | 'line' | 'arrow' |  'star' | 'polygon' | 'polyline' | 'heart' | 'cloud' | 'hexagon';
 
 export interface PanelInterface {
   id: string;

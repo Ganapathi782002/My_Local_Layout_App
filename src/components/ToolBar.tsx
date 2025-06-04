@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Trash2,
   Download,
@@ -12,6 +12,17 @@ import {
   ClipboardPaste,
   Square,
   Circle,
+  Triangle,
+  ArrowRight,
+  Minus as LineIcon,
+  Star as StarIcon,
+  Heart as HeartIcon,
+  Cloud as CloudIcon,
+  Hexagon as HexagonIcon,
+  Type as TypeIcon,
+  Spline as PolylineIcon,
+  Pentagon as PolygonIcon,
+  ChevronDown,
 } from "lucide-react";
 import type { ShapeType } from "../types";
 
@@ -23,8 +34,6 @@ interface ToolbarProps {
   onExportConfig: () => void;
   onImportConfig: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onExportPNG: () => void;
-  // REMOVED: onToggleCanvasSettings is no longer needed
-  // onToggleCanvasSettings: () => void;
   onRemoveSelectedPanels: () => void;
   onToggleTheme: () => void;
   onCopySelectedPanels: () => void;
@@ -36,6 +45,27 @@ interface ToolbarProps {
   isPasteDisabled: boolean;
 }
 
+// Define the shapes for the dropdown menu
+// Ensure 'type' matches your ShapeType values from types.ts
+const shapeMenuItems: Array<{
+  type: ShapeType;
+  label: string;
+  Icon: React.ElementType;
+}> = [
+  { type: "rectangle", label: "Rectangle", Icon: Square },
+  { type: "circle", label: "Circle", Icon: Circle },
+  { type: "textBlock", label: "Text", Icon: TypeIcon },
+  { type: "triangle", label: "Triangle", Icon: Triangle },
+  { type: "line", label: "Line", Icon: LineIcon },
+  { type: "arrow", label: "Arrow", Icon: ArrowRight },
+  { type: "star", label: "Star", Icon: StarIcon },
+  { type: "polygon", label: "Polygon", Icon: PolygonIcon }, // This will add a specific polygon (e.g. pentagon), customize as needed
+  { type: "polyline", label: "Polyline", Icon: PolylineIcon },
+  { type: "heart", label: "Heart", Icon: HeartIcon },
+  { type: "cloud", label: "Cloud", Icon: CloudIcon },
+  { type: "hexagon", label: "Hexagon", Icon: HexagonIcon },
+];
+
 const Toolbar: React.FC<ToolbarProps> = ({
   theme,
   onAddPanel,
@@ -44,8 +74,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onExportConfig,
   onImportConfig,
   onExportPNG,
-  // REMOVED: Destructuring for onToggleCanvasSettings
-  // onToggleCanvasSettings,
   onRemoveSelectedPanels,
   onToggleTheme,
   onCopySelectedPanels,
@@ -57,6 +85,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
   isDeleteDisabled,
 }) => {
   const [showCopiedTooltip, setShowCopiedTooltip] = useState(false);
+  const [isShapesDropdownOpen, setIsShapesDropdownOpen] = useState(false);
+  const shapesButtonRef = useRef<HTMLButtonElement>(null);
+  const shapesDropdownRef = useRef<HTMLDivElement>(null);
+
   const handleCopyClick = () => {
     if (isCopyDisabled) return;
     onCopySelectedPanels();
@@ -65,6 +97,26 @@ const Toolbar: React.FC<ToolbarProps> = ({
       setShowCopiedTooltip(false);
     }, 1500);
   };
+
+  // Effect to handle clicks outside the shapes dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isShapesDropdownOpen &&
+        shapesButtonRef.current &&
+        !shapesButtonRef.current.contains(event.target as Node) &&
+        shapesDropdownRef.current &&
+        !shapesDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsShapesDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isShapesDropdownOpen]);
 
   return (
     <div className="flex flex-col items-center mb-8 w-full">
@@ -76,31 +128,56 @@ const Toolbar: React.FC<ToolbarProps> = ({
         Layout Designer
       </h1>
 
-      <div className="flex flex-wrap gap-4 justify-center">
-        {/* Add Square */}
-        <button
-          onClick={() => onAddPanel("rectangle")}
-          className={`p-2 rounded-lg ${
-            theme === "dark"
-              ? "bg-green-600 hover:bg-green-700"
-              : "bg-green-500 hover:bg-green-600"
-          } text-white transition-colors`}
-          title="Add Square"
-        >
-          <Square size={20} />
-        </button>
-        {/* Add Circle */}
-        <button
-          onClick={() => onAddPanel("circle")}
-          className={`p-2 rounded-lg ${
-            theme === "dark"
-              ? "bg-green-600 hover:bg-green-700"
-              : "bg-green-500 hover:bg-green-600"
-          } text-white transition-colors`}
-          title="Add Circle"
-        >
-          <Circle size={20} />
-        </button>
+      <div className="flex flex-wrap gap-2 md:gap-3 justify-center items-center"> {/* Reduced gap slightly */}
+        {/* Shapes Dropdown Button */}
+        <div className="relative">
+          <button
+            ref={shapesButtonRef}
+            onClick={() => setIsShapesDropdownOpen(!isShapesDropdownOpen)}
+            className={`flex items-center p-2 rounded-lg ${
+              theme === "dark"
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-green-500 hover:bg-green-600"
+            } text-white transition-colors`}
+            title="Add Shape"
+          >
+            {/* You can use a dedicated Shapes icon from Lucide if available, or an SVG */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/></svg>
+            <span className="ml-2 mr-1 text-sm">Shapes</span>
+            <ChevronDown size={16} className={`transition-transform duration-200 ${isShapesDropdownOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {isShapesDropdownOpen && (
+            <div
+              ref={shapesDropdownRef}
+              className={`absolute top-full left-0 mt-2 w-72 max-h-96 overflow-y-auto p-2 rounded-md shadow-xl z-50 ${
+                theme === "dark"
+                  ? "bg-gray-800 border-gray-700" // Darker background for dropdown
+                  : "bg-white border-gray-300"
+              } border grid grid-cols-3 gap-2`} // Using 3 columns for a more compact grid
+            >
+              {shapeMenuItems.map(({ type, label, Icon }) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    onAddPanel(type);
+                    setIsShapesDropdownOpen(false);
+                  }}
+                  title={label}
+                  className={`flex flex-col items-center justify-center p-3 rounded transition-colors h-20 ${ // Fixed height for items
+                    theme === "dark"
+                      ? "text-gray-300 hover:bg-gray-700 hover:text-white"
+                      : "text-gray-700 hover:bg-gray-200 hover:text-blue-600"
+                  }`}
+                >
+                  <Icon size={28} className="mb-1" /> {/* Slightly larger icon */}
+                  <span className="text-xs text-center block truncate w-full">{label}</span> {/* Ensure text doesn't overflow too much */}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Undo Button */}
         <button
           onClick={onUndo}
@@ -212,6 +289,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Download size={20} />
         </button>
+
+        {/* Delete Selected Panels Button */}
         <button
           onClick={onRemoveSelectedPanels}
           disabled={isDeleteDisabled}
@@ -233,7 +312,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           className={`p-2 rounded-lg ${
             theme === "dark"
               ? "bg-yellow-600 hover:bg-yellow-700"
-              : "bg-blue-500 hover:bg-blue-600"
+              : "bg-indigo-500 hover:bg-indigo-600" // Changed light theme toggle to indigo for better contrast with green 'Shapes'
           } text-white transition-colors`}
           title="Toggle Theme"
         >

@@ -34,7 +34,7 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
   onToggleGrid,
 }) => {
   // Tailwind CSS classes for theme-based styling
-  const textColor = theme === 'dark' ? 'text-gray-100' : 'text-gray-800';
+  const textColor = theme === 'dark' ? 'text-gray-600' : 'text-black-400';
   const bgColor = theme === 'dark' ? 'bg-white-800' : 'bg-white';
   const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300';
   const inputClasses = `p-2 rounded border ${borderColor} ${bgColor} ${textColor} focus:outline-none focus:ring-2 ${theme === 'dark' ? 'focus:ring-blue-600' : 'focus:ring-blue-400'}`;
@@ -131,9 +131,6 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
               checked={panelRoundedCorners}
               onChange={onTogglePanelRoundedCorners}
             />
-            {/* Custom toggle switch styling */}
-            <div className={`relative w-11 h-6 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-4 ${theme === 'dark' ? 'peer-focus:ring-blue-800' : 'peer-focus:ring-blue-300'} rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${theme === 'dark' ? 'peer-checked:bg-blue-600' : 'peer-checked:bg-blue-600'}`}></div>
-            <span className={`ms-3 text-sm font-medium ${textColor}`}>Panels Rounded Corners</span>
           </label>
         </div>
       </div>

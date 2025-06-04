@@ -7,9 +7,6 @@ export const initialCanvasConfig: CanvasConfig = {
   canvasHeight: 720,
   canvasBgColor: '#ffffff',
   canvasFgColor: '#000000',
-  // Renamed from 'roundedCorners' to explicitly state its effect on panels
-  panelRoundedCorners: true, 
-  // New property for canvas specific border radius
   canvasBorderRadius: 8, // Default to a small border radius for the canvas
   showGrid: false,
   theme: 'light',
@@ -89,14 +86,6 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         canvasFgColor: action.payload.fgColor,
       };
       break;
-    // Renamed action to target panel rounded corners specifically
-    case 'TOGGLE_PANEL_ROUNDED_CORNERS':
-      newConfig = {
-        ...state.config,
-        panelRoundedCorners: !state.config.panelRoundedCorners,
-      };
-      break;
-    // New action to set canvas border radius
     case 'SET_CANVAS_BORDER_RADIUS':
       newConfig = {
         ...state.config,
@@ -160,15 +149,12 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
           ...action.payload,
           panels: loadedPanels,
           theme: action.payload.theme || 'light',
-          // Ensure new properties are present, with fallbacks for older config files
-          panelRoundedCorners: action.payload.panelRoundedCorners ?? true, // Default to true if not in payload
           canvasBorderRadius: action.payload.canvasBorderRadius ?? 8, // Default to 8 if not in payload
         },
         hasUnsavedChanges: false,
         history: [{ 
             ...action.payload, 
             panels: loadedPanels,
-            panelRoundedCorners: action.payload.panelRoundedCorners ?? true,
             canvasBorderRadius: action.payload.canvasBorderRadius ?? 8,
         }],
         historyIndex: 0,
