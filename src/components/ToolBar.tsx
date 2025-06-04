@@ -212,22 +212,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Download size={20} />
         </button>
-
-        {/* REMOVED: Canvas Settings Button
-        <button
-          onClick={onToggleCanvasSettings}
-          className={`p-2 rounded-lg ${
-            theme === "dark"
-              ? "bg-gray-600 hover:bg-gray-700"
-              : "bg-gray-500 hover:bg-gray-600"
-          } text-white transition-colors`}
-          title="Canvas Settings"
-        >
-          <Settings size={20} />
-        </button>
-        */}
-
-        {/* Delete Selected Panels Button */}
         <button
           onClick={onRemoveSelectedPanels}
           disabled={isDeleteDisabled}

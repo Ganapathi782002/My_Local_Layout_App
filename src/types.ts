@@ -1,4 +1,4 @@
-export type ShapeType = 'rectangle' | 'circle' ;
+export type ShapeType = 'rectangle' | 'circle' | 'textBlock';
 
 export interface PanelInterface {
   id: string;

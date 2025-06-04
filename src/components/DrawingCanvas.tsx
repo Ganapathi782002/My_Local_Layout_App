@@ -84,7 +84,7 @@ const DrawingCanvas: React.FC = () => {
     }
     // Update effect for canvas border radius from config
     if (canvasRef.current) {
-        canvasRef.current.style.borderRadius = `${canvasBorderRadius}px`;
+      canvasRef.current.style.borderRadius = `${canvasBorderRadius}px`;
     }
   }, [config, history.length, panels.length, canvasBorderRadius]);
 
@@ -246,11 +246,11 @@ const DrawingCanvas: React.FC = () => {
     let snappedHeight = currentPanel.height;
 
     if (draggingPanelIdRef.current) {
-        snappedX = startPanelXRef.current + dx;
-        snappedY = startPanelYRef.current + dy;
+      snappedX = startPanelXRef.current + dx;
+      snappedY = startPanelYRef.current + dy;
     } else if (resizingPanelIdRef.current) {
-        snappedWidth = startPanelWidthRef.current + dx;
-        snappedHeight = startPanelHeightRef.current + dy;
+      snappedWidth = startPanelWidthRef.current + dx;
+      snappedHeight = startPanelHeightRef.current + dy;
     }
 
     // 1. Canvas Boundary Snapping (Drag)
@@ -456,6 +456,35 @@ const DrawingCanvas: React.FC = () => {
     }
   }, []);
 
+  const handlePanelInteractionStart = useCallback((panelId: string, event: React.MouseEvent, type: 'drag' | 'resize') => {
+    event.stopPropagation(); // Prevent interaction with elements below
+
+    const panel = panels.find(p => p.id === panelId);
+    if (!panel) return;
+
+    if (type === 'drag') {
+      draggingPanelIdRef.current = panelId;
+      startMouseXRef.current = event.clientX;
+      startMouseYRef.current = event.clientY;
+      startPanelXRef.current = panel.x;
+      startPanelYRef.current = panel.y;
+      document.body.style.cursor = 'grab';
+    } else if (type === 'resize') {
+      resizingPanelIdRef.current = panelId;
+      startMouseXRef.current = event.clientX;
+      startMouseYRef.current = event.clientY;
+      startPanelWidthRef.current = panel.width;
+      startPanelHeightRef.current = panel.height;
+      // You might want to set a specific cursor for resizing
+      document.body.style.cursor = 'nwse-resize';
+    }
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+
+  }, [panels, handleGlobalMouseMove, handleGlobalMouseUp]);
+
+
   const handlePanelClick = useCallback((panelId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent canvas click from deselecting other panels
     if (event.ctrlKey || event.metaKey) {
@@ -528,9 +557,12 @@ const DrawingCanvas: React.FC = () => {
         style={{
           width: canvasWidth,
           height: canvasHeight,
-          backgroundColor: canvasBgColor,
+          backgroundColor: showGrid ? undefined : canvasBgColor,
           borderColor: canvasFgColor,
-          borderRadius: `${canvasBorderRadius}px`, // Apply dynamic border radius
+          borderRadius: `${canvasBorderRadius}px`,
+          backgroundImage: showGrid ? `linear-gradient(${theme === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)'} 1px, transparent 1px),
+          linear-gradient(90deg, ${theme === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)'} 1px, transparent 1px)` : 'none',
+          backgroundSize: showGrid ? '20px 20px' : 'auto'
         }}
         onClick={handleCanvasClick}
       >

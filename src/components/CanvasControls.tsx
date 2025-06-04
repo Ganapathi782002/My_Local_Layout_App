@@ -35,7 +35,7 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
 }) => {
   // Tailwind CSS classes for theme-based styling
   const textColor = theme === 'dark' ? 'text-gray-100' : 'text-gray-800';
-  const bgColor = theme === 'dark' ? 'bg-gray-800' : 'bg-white';
+  const bgColor = theme === 'dark' ? 'bg-white-800' : 'bg-white';
   const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300';
   const inputClasses = `p-2 rounded border ${borderColor} ${bgColor} ${textColor} focus:outline-none focus:ring-2 ${theme === 'dark' ? 'focus:ring-blue-600' : 'focus:ring-blue-400'}`;
 
