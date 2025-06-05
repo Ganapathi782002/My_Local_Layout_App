@@ -10,9 +10,11 @@ export interface PanelInterface {
   text: string;
   shapeType: ShapeType; 
   backgroundColor: string;
+  borderRadius?: number;
   borderColor: string;
   borderWidth: number;
   borderStyle: string;
+  textColor?: string;
 }
 
 export interface CanvasConfig {

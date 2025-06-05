@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { PanelInterface, ShapeType } from '../types';
+import { FiEdit, FiX } from 'react-icons/fi';
 
 interface PanelProps {
   panel: PanelInterface;
@@ -18,6 +19,7 @@ interface PanelProps {
   panelRoundedCorners: boolean;
   theme: 'light' | 'dark';
   onInteractionStart: (panelId: string, event: React.MouseEvent, type: 'drag' | 'resize') => void;
+  onEdit: (panelId: string) => void;
 }
 
 export const Panel: React.FC<PanelProps> = ({
@@ -29,18 +31,20 @@ export const Panel: React.FC<PanelProps> = ({
   panelRoundedCorners,
   theme,
   onInteractionStart,
-  // canvasWidth, // Not used directly in this component's logic body
-  // canvasHeight, // Not used directly in this component's logic body
+  onEdit,
+  onUpdateStyle,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [editingText, setEditingText] = useState(false);
+  const [showEditOverlay, setShowEditOverlay] = useState(false);
 
   const {
     id, x, y, width, height, zIndex, text, shapeType,
-    backgroundColor, borderColor, borderWidth, borderStyle
+    backgroundColor, borderColor, borderWidth, borderStyle,
+    textColor, // Assuming textColor is part of PanelInterface
+    borderRadius // Assuming borderRadius is part of PanelInterface
   } = panel;
 
-  // 1. Define renderShape FIRST
   const renderShape = useCallback(() => {
     if (width <= 0 || height <= 0) { return null; }
 
@@ -79,12 +83,13 @@ export const Panel: React.FC<PanelProps> = ({
       case 'heart':
         const heartPathData = "M16,28.261C7.623,21.934,0,15.528,0,8.354A8.354,8.354,0,0,1,8.354,0C12.9,0,16,3.758,16,3.758S19.1,0,23.646,0A8.354,8.354,0,0,1,32,8.354C32,15.528,24.377,21.934,16,28.261Z";
         const heartViewBox = "0 0 32 29";
-        return (<svg width="100%" height="100%" viewBox={heartViewBox} preserveAspectRatio="xMidYMid meet"><path d={heartPathData} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness > 0 ? "1" : "0"} strokeLinejoin={svgStrokeLinejoin} /></svg>);
+        // Apply directStrokeThickness for consistent border width
+        return (<svg width="100%" height="100%" viewBox={heartViewBox} preserveAspectRatio="xMidYMid meet"><path d={heartPathData} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness} strokeLinejoin={svgStrokeLinejoin} /></svg>);
       case 'cloud':
         const cloudPathData = "M15 50 C5 50 5 30 15 30 A10 10 0 0 1 25 20 A15 15 0 0 1 50 20 Q60 5 70 20 A15 15 0 0 1 85 35 Q95 35 85 50 Z";
         const cloudViewBox = "0 0 100 60";
-        return (<svg width="100%" height="100%" viewBox={cloudViewBox} preserveAspectRatio="xMidYMid meet"><path d={cloudPathData} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness > 0 ? "1.5" : "0"} strokeLinejoin={svgStrokeLinejoin} strokeLinecap={svgStrokeLinecap} /></svg>);
-      // 'rectangle' and 'textBlock' are styled by the main div, so renderShape returns null for them.
+        // Apply directStrokeThickness for consistent border width
+        return (<svg width="100%" height="100%" viewBox={cloudViewBox} preserveAspectRatio="xMidYMid meet"><path d={cloudPathData} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness} strokeLinejoin={svgStrokeLinejoin} strokeLinecap={svgStrokeLinecap} /></svg>);
       case 'rectangle':
       case 'textBlock':
       default:
@@ -92,16 +97,15 @@ export const Panel: React.FC<PanelProps> = ({
     }
   }, [shapeType, width, height, backgroundColor, borderColor, borderWidth]);
 
-  // panelClasses defined AFTER renderShape
   const panelClasses = useMemo(() => {
     let classes = `absolute group flex items-center justify-center cursor-move transition-all duration-100 ease-out`;
-    
+
+    // panelRoundedCorners prop is used here for rectangle/textBlock
     if (shapeType === 'rectangle' || shapeType === 'textBlock') {
-      if (panelRoundedCorners) { // panelRoundedCorners prop is used here
-        classes += ' rounded-lg';
+      if (panelRoundedCorners) {
+        classes += ' rounded-lg'; // This is a general rounding applied by Tailwind
       }
     }
-    // No special class for SVG 'circle' like 'rounded-full' on the main div
 
     if (isSelected) {
       classes += ` z-50 ${theme === 'dark' ? 'ring-2 ring-blue-400' : 'ring-2 ring-blue-500'}`;
@@ -109,24 +113,26 @@ export const Panel: React.FC<PanelProps> = ({
       classes += ` z-20`;
     }
     return classes;
-  }, [shapeType, isSelected, panelRoundedCorners, theme]); // panelRoundedCorners is a dependency
+  }, [shapeType, isSelected, panelRoundedCorners, theme]);
 
-  // panelInlineStyles defined AFTER renderShape
   const panelInlineStyles = useMemo(() => {
     const styles: React.CSSProperties = {
       left: x, top: y, width: width, height: height,
       zIndex: isSelected ? 50 : zIndex,
     };
-    // Apply div styling ONLY for shapes that renderShape returns null for (rectangle, textBlock)
-    if (renderShape() === null) { 
+    // Apply div styling ONLY for shapes that are handled by CSS (rectangle, textBlock)
+    if (shapeType === 'rectangle' || shapeType === 'textBlock') {
       styles.backgroundColor = backgroundColor;
       styles.borderColor = borderColor;
       styles.borderWidth = borderWidth;
       styles.borderStyle = borderStyle as React.CSSProperties['borderStyle'];
+      // Apply borderRadius only for rectangles
+      if (shapeType === 'rectangle' && typeof borderRadius === 'number') {
+        styles.borderRadius = `${borderRadius}px`;
+      }
     }
-    // For SVG shapes, the main div can be transparent or have no explicit background/border from here
     return styles;
-  }, [x, y, width, height, zIndex, isSelected, backgroundColor, borderColor, borderWidth, borderStyle, shapeType, renderShape]); // Added renderShape & shapeType
+  }, [x, y, width, height, zIndex, isSelected, backgroundColor, borderColor, borderWidth, borderStyle, shapeType, borderRadius]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -134,6 +140,8 @@ export const Panel: React.FC<PanelProps> = ({
     const target = e.target as HTMLElement;
     if (target.dataset.resizer) {
       onInteractionStart(id, e, 'resize');
+    } else if (target.dataset.editIcon) {
+      return;
     } else {
       onInteractionStart(id, e, 'drag');
     }
@@ -141,25 +149,17 @@ export const Panel: React.FC<PanelProps> = ({
 
   const handlePanelClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.dataset.resizer) { return; }
+    if (target.dataset.resizer || target.dataset.editIcon) {
+      return;
+    }
     onSelect(id, e);
   }, [id, onSelect]);
 
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => { onUpdateText(id, e.target.value); }, [id, onUpdateText]);
   const handleTextareaFocus = useCallback(() => setEditingText(true), []);
   const handleTextareaBlur = useCallback(() => setEditingText(false), []);
-  
+
   const innerContentStyle: React.CSSProperties = useMemo(() => {
-    let paddingConfig: string | { paddingTop?: string, paddingRight?: string, paddingBottom?: string, paddingLeft?: string } = '0px'; // Default to 0px padding
-
-    // Only apply specific padding if it's a textBlock, as other shapes won't show text area
-    if (shapeType === 'textBlock') {
-      paddingConfig = '0.5rem'; // Standard padding for textBlock
-    }
-    // For other shapes where showTextArea is false, this padding won't be visually relevant
-    // for the textarea, but the div will still exist if showTextArea was true.
-    // Since showTextArea is now strictly for textBlock, other cases are less critical here.
-
     const baseStyle: React.CSSProperties = {
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       width: '100%', height: '100%',
@@ -167,65 +167,219 @@ export const Panel: React.FC<PanelProps> = ({
       boxSizing: 'border-box',
     };
 
-    if (typeof paddingConfig === 'string') {
-      return { ...baseStyle, padding: paddingConfig };
-    } else { // Should not be hit if only textBlock gets non-string padding & others are 0px string
-      return {
-        ...baseStyle,
-      };
+    if (shapeType === 'textBlock') {
+      return { ...baseStyle, padding: '0.5rem' };
     }
-  }, [shapeType, width, height, borderWidth]); // Keep deps for potential future text on other shapes
+    return { ...baseStyle, padding: '0px' };
+  }, [shapeType]);
 
   const textAreaPointerEvents = useMemo(() => {
     return isSelected || editingText ? 'auto' : 'none';
   }, [isSelected, editingText]);
 
-  // Text only shown for 'textBlock'
   const showTextArea = useMemo(() => {
     return shapeType === 'textBlock';
   }, [shapeType]);
 
+  const handleEditClick = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation();
+    setShowEditOverlay(true);
+    onEdit(id);
+  }, [id, onEdit]);
+
+  const handleCloseEditOverlay = useCallback(() => {
+    setShowEditOverlay(false);
+  }, []);
+
+  const editIconPositionClasses = useMemo(() => {
+    if (shapeType === 'line') {
+      return '-top-3 -left-3';
+    }
+    return '-top-3 -right-3';
+  }, [shapeType]);
+
+  const handleBorderColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdateStyle(id, { borderColor: e.target.value });
+  }, [id, onUpdateStyle]);
+
+  const handleFillColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdateStyle(id, { backgroundColor: e.target.value });
+  }, [id, onUpdateStyle]);
+
+  const handleFontColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    onUpdateStyle(id, { textColor: e.target.value });
+  }, [id, onUpdateStyle]);
+
+  const handleBorderRadiusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    onUpdateStyle(id, { borderRadius: isNaN(value) ? undefined : value });
+  }, [id, onUpdateStyle]);
+
   return (
-    <div
-      ref={panelRef}
-      className={panelClasses}
-      style={panelInlineStyles}
-      onMouseDown={handleMouseDown}
-      onClick={handlePanelClick}
-      data-panel-id={id}
-    >
-      <div style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, pointerEvents: 'none' }}>
-        {renderShape()}
+    <>
+      <div
+        ref={panelRef}
+        className={panelClasses}
+        style={panelInlineStyles}
+        onMouseDown={handleMouseDown}
+        onClick={handlePanelClick}
+        data-panel-id={id}
+      >
+        <div style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, pointerEvents: 'none' }}>
+          {renderShape()}
+        </div>
+
+        {showTextArea && (
+          <div style={{...innerContentStyle, pointerEvents: 'none' }}>
+            <textarea
+              className={`w-full h-full text-center outline-none resize-none font-mono text-sm leading-tight bg-transparent
+                ${!isSelected && !editingText && text.trim() === '' ? 'placeholder-gray-500 dark:placeholder-gray-400' : ''}
+              `}
+              style={{
+                color: textColor || canvasFgColor,
+                pointerEvents: textAreaPointerEvents,
+                boxSizing: 'border-box',
+              }}
+              value={text}
+              onChange={handleTextChange}
+              onFocus={handleTextareaFocus}
+              onBlur={handleTextareaBlur}
+              placeholder={'Click to type'}
+              aria-label={`Panel text for ${shapeType} with ID ${id}`}
+            />
+          </div>
+        )}
+
+        {isSelected && (
+          <>
+            <div
+              data-resizer="true"
+              className={`absolute -bottom-3 -right-3 w-6 h-6 rounded-full cursor-nwse-resize
+                ${theme === 'dark' ? 'bg-blue-400' : 'bg-blue-500'}
+              `}
+            />
+            <div
+              data-edit-icon="true"
+              className={`absolute w-6 h-6 flex items-center justify-center rounded-full cursor-pointer
+                ${theme === 'dark' ? 'bg-blue-400 text-white' : 'bg-blue-500 text-white'} z-50
+                ${editIconPositionClasses}
+              `}
+              onClick={handleEditClick}
+              title="Edit Panel Properties"
+            >
+              <FiEdit size={14} />
+            </div>
+          </>
+        )}
       </div>
 
-      {showTextArea && (
-        <div style={{...innerContentStyle, pointerEvents: 'none' }}>
-          <textarea
-            className={`w-full h-full text-center outline-none resize-none font-mono text-sm leading-tight bg-transparent
-              ${!isSelected && !editingText && text.trim() === '' ? 'placeholder-gray-500 dark:placeholder-gray-400' : ''}
-            `}
-            style={{
-              color: canvasFgColor,
-              pointerEvents: textAreaPointerEvents,
-              boxSizing: 'border-box',
-            }}
-            value={text}
-            onChange={handleTextChange}
-            onFocus={handleTextareaFocus}
-            onBlur={handleTextareaBlur}
-            placeholder={'Click to type'}
-          />
+      {showEditOverlay && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[100]"
+          onClick={handleCloseEditOverlay}
+        >
+          <div
+            className={`p-6 rounded-lg shadow-xl w-80 max-w-[90vw] relative
+              ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold mb-4">Edit Panel</h3>
+            <button
+              onClick={handleCloseEditOverlay}
+              className={`absolute top-2 right-2 p-1 rounded-full
+                ${theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-200'}`}
+              title="Close"
+            >
+              <FiX size={20} />
+            </button>
+
+            <div className="space-y-4">
+              {/* Border Color */}
+              <div>
+                <label htmlFor={`borderColor-${id}`} className="block text-sm font-medium mb-1">
+                  Border Color:
+                </label>
+                <input
+                  type="color"
+                  id={`borderColor-${id}`}
+                  value={borderColor || '#000000'}
+                  onChange={handleBorderColorChange}
+                  className="w-full h-8"
+                />
+              </div>
+
+              {/* Fill Color */}
+              {(shapeType !== 'line' && shapeType !== 'polyline') && (
+                <div>
+                  <label htmlFor={`fillColor-${id}`} className="block text-sm font-medium mb-1">
+                    Fill Color:
+                  </label>
+                  <input
+                    type="color"
+                    id={`fillColor-${id}`}
+                    value={backgroundColor || '#FFFFFF'}
+                    onChange={handleFillColorChange}
+                    className="w-full h-8"
+                  />
+                </div>
+              )}
+
+              {/* Text Content */}
+              {showTextArea && (
+                <div>
+                  <label htmlFor={`textContent-${id}`} className="block text-sm font-medium mb-1">
+                    Text Content:
+                  </label>
+                  <textarea
+                    id={`textContent-${id}`}
+                    value={text}
+                    onChange={handleTextChange}
+                    rows={3}
+                    className={`w-full p-2 border rounded-md text-sm resize-y
+                      ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}
+                    `}
+                  />
+                </div>
+              )}
+
+              {/* Font Color */}
+              {showTextArea && (
+                <div>
+                  <label htmlFor={`fontColor-${id}`} className="block text-sm font-medium mb-1">
+                    Font Color:
+                  </label>
+                  <input
+                    type="color"
+                    id={`fontColor-${id}`}
+                    value={textColor || canvasFgColor || '#000000'}
+                    onChange={handleFontColorChange}
+                    className="w-full h-8"
+                  />
+                </div>
+              )}
+
+              {/* Border Radius for Rectangle */}
+              {shapeType === 'rectangle' && (
+                <div>
+                  <label htmlFor={`borderRadius-${id}`} className="block text-sm font-medium mb-1">
+                    Border Radius (px):
+                  </label>
+                  <input
+                    type="number"
+                    id={`borderRadius-${id}`}
+                    value={borderRadius || 0}
+                    onChange={handleBorderRadiusChange}
+                    min="0"
+                    className={`w-full p-2 border rounded-md text-sm
+                      ${theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}
+                    `}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
-
-      {isSelected && (
-        <div
-          data-resizer="true"
-          className={`absolute -bottom-3 -right-3 w-6 h-6 rounded-full cursor-nwse-resize
-            ${theme === 'dark' ? 'bg-blue-400' : 'bg-blue-500'}
-          `}
-        />
-      )}
-    </div>
+    </>
   );
 };
