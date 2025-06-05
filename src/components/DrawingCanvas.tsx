@@ -10,7 +10,7 @@ import { PanelInterface, ShapeType } from '../types';
 const DEFAULT_PANEL_STYLES: { [key in ShapeType]?: Partial<PanelInterface> } = {
   rectangle: { width: 150, height: 100, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
   circle: { width: 120, height: 120, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
-  textBlock: { width: 200, height: 50, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: 'Text' },
+  textBlock: { width: 200, height: 50, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: 'Click to Type' },
   triangle: { width: 100, height: 100, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
   line: { width: 150, height: 2, backgroundColor: '#000000', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
   arrow: { width: 150, height: 60, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
@@ -20,6 +20,8 @@ const DEFAULT_PANEL_STYLES: { [key in ShapeType]?: Partial<PanelInterface> } = {
   heart: { width: 110, height: 100, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
   cloud: { width: 150, height: 100, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
   hexagon: { width: 130, height: 110, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
+  'chevron': { width: 100, height: 60, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
+  diamond: { width: 120, height: 120, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 3, borderStyle: 'solid', text: '' },
 };
 
 interface GuideLine {
@@ -44,7 +46,6 @@ const DrawingCanvas: React.FC = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [guideLines, setGuideLines] = useState<GuideLine[]>([]);
-  // Refs for rAF optimization of guide lines
   const guideLinesDataRef = useRef<GuideLine[]>([]);
   const rafIdRef = useRef<number | null>(null);
 
@@ -73,7 +74,6 @@ const DrawingCanvas: React.FC = () => {
     return () => { window.removeEventListener('beforeunload', handleBeforeUnload); };
   }, [hasUnsavedChanges]);
 
-  // Cleanup rAF on component unmount
   useEffect(() => {
     return () => {
       if (rafIdRef.current) {
@@ -113,10 +113,8 @@ const DrawingCanvas: React.FC = () => {
     switch (direction) { case 's': return 'ns-resize'; case 'e': return 'ew-resize'; case 'se': return 'nwse-resize'; default: return 'default'; }
   };
 
-  // Ref to hold the latest mouse move handler for stable event listener removal
   const handleGlobalMouseMoveRef = useRef<((e: MouseEvent) => void) | null>(null);
 
-  // Original handleGlobalMouseUp modified for rAF cleanup
   const handleGlobalMouseUp = useCallback(() => {
     draggingPanelIdRef.current = null;
     resizingPanelIdRef.current = null;
@@ -127,23 +125,23 @@ const DrawingCanvas: React.FC = () => {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
     }
-    if (guideLinesDataRef.current.length > 0) { // Only update state if ref had data
+    if (guideLinesDataRef.current.length > 0) {
         guideLinesDataRef.current = [];
-        setGuideLines([]); // Clear guides from state
+        setGuideLines([]);
     }
 
-    if (handleGlobalMouseMoveRef.current) { // Use the ref for removal
+    if (handleGlobalMouseMoveRef.current) {
       document.removeEventListener('mousemove', handleGlobalMouseMoveRef.current);
     }
     document.removeEventListener('mouseup', handleGlobalMouseUp);
     document.body.style.cursor = 'default';
-  }, []); // setGuideLines is stable, handleGlobalMouseMoveRef is stable
+  }, []);
 
   // This is the main mouse move logic, now called internalHandleGlobalMouseMove
   const internalHandleGlobalMouseMove = useCallback((e: MouseEvent) => {
     const dx = e.clientX - startMouseXRef.current;
     const dy = e.clientY - startMouseYRef.current;
-    let newCalculatedGuides: GuideLine[] = []; // Calculate guides into this local array
+    let newCalculatedGuides: GuideLine[] = [];
 
     if (isResizingCanvasRef.current) {
       let newWidth = startCanvasWidthRef.current;
@@ -151,14 +149,13 @@ const DrawingCanvas: React.FC = () => {
       const direction = canvasResizeDirectionRef.current;
       if (direction.includes('e')) { newWidth = Math.max(MIN_CANVAS_DIMENSION, startCanvasWidthRef.current + dx); }
       if (direction.includes('s')) { newHeight = Math.max(MIN_CANVAS_DIMENSION, startCanvasHeightRef.current + dy); }
-      onUpdateCanvasDimensions(newWidth, newHeight); // Update dimensions directly
+      onUpdateCanvasDimensions(newWidth, newHeight);
       
-      guideLinesDataRef.current = []; // No guides for canvas resize
-      // If an rAF is pending, let it run to clear guides, or schedule one if not.
+      guideLinesDataRef.current = [];
       if (!rafIdRef.current) {
         rafIdRef.current = requestAnimationFrame(() => {
-            if (rafIdRef.current) { // Check if not cancelled by a quick mouseup
-                 setGuideLines(guideLinesDataRef.current); // This will set to []
+            if (rafIdRef.current) {
+                 setGuideLines(guideLinesDataRef.current);
             }
             rafIdRef.current = null;
         });
@@ -168,7 +165,7 @@ const DrawingCanvas: React.FC = () => {
 
     const currentPanelId = draggingPanelIdRef.current || resizingPanelIdRef.current;
     if (!currentPanelId) {
-      if (guideLinesDataRef.current.length > 0) { // If guides were shown, schedule clear
+      if (guideLinesDataRef.current.length > 0) {
         guideLinesDataRef.current = [];
         if (!rafIdRef.current) {
           rafIdRef.current = requestAnimationFrame(() => {
@@ -207,8 +204,6 @@ const DrawingCanvas: React.FC = () => {
       snappedHeight = startPanelHeightRef.current + dy;
     }
 
-    // --- SNAPPING LOGIC ---
-    // All your original `guides.push` calls should now be `newCalculatedGuides.push`
     if (draggingPanelIdRef.current) {
       // Canvas Boundary Snapping
       if (Math.abs(snappedX) < SNAP_THRESHOLD) { snappedX = 0; newCalculatedGuides.push({ id: 'canvas-left', x1: 0, y1: 0, x2: 0, y2: canvasHeight, orientation: 'vertical' }); }
@@ -242,7 +237,6 @@ const DrawingCanvas: React.FC = () => {
         if (Math.abs((snappedY + currentPanel.height) - otherPanelRect.bottom) < SNAP_THRESHOLD) { snappedY = otherPanelRect.bottom - currentPanel.height; newCalculatedGuides.push({ id: `panel-b-b-${otherPanel.id}`, x1: Math.min(snappedX, otherPanel.x), y1: otherPanelRect.bottom, x2: Math.max(snappedX + currentPanel.width, otherPanel.x + otherPanel.width), y2: otherPanelRect.bottom, orientation: 'horizontal' }); }
       });
     }
-    // --- END SNAPPING LOGIC ---
 
     // Update panel position or dimensions directly (synchronously)
     if (draggingPanelIdRef.current) {
@@ -287,12 +281,12 @@ const DrawingCanvas: React.FC = () => {
     startMouseYRef.current = e.clientY;
     startCanvasWidthRef.current = canvasWidth;
     startCanvasHeightRef.current = canvasHeight;
-    if (handleGlobalMouseMoveRef.current) { // Use the ref
+    if (handleGlobalMouseMoveRef.current) {
         document.addEventListener('mousemove', handleGlobalMouseMoveRef.current);
     }
     document.addEventListener('mouseup', handleGlobalMouseUp);
     document.body.style.cursor = getCursorStyle(direction);
-  }, [canvasWidth, canvasHeight, handleGlobalMouseUp]); // handleGlobalMouseUp is stable
+  }, [canvasWidth, canvasHeight, handleGlobalMouseUp]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -326,11 +320,11 @@ const DrawingCanvas: React.FC = () => {
     if (type === 'drag') { draggingPanelIdRef.current = panelId; startPanelXRef.current = panel.x; startPanelYRef.current = panel.y; document.body.style.cursor = 'grab';
     } else if (type === 'resize') { resizingPanelIdRef.current = panelId; startPanelWidthRef.current = panel.width; startPanelHeightRef.current = panel.height; document.body.style.cursor = 'nwse-resize'; }
     startMouseXRef.current = event.clientX; startMouseYRef.current = event.clientY;
-    if (handleGlobalMouseMoveRef.current) { // Use the ref
+    if (handleGlobalMouseMoveRef.current) {
         document.addEventListener('mousemove', handleGlobalMouseMoveRef.current);
     }
     document.addEventListener('mouseup', handleGlobalMouseUp);
-  }, [panels, handleGlobalMouseUp]); // handleGlobalMouseUp is stable
+  }, [panels, handleGlobalMouseUp]);
 
   const handlePanelClick = useCallback((panelId: string, event: React.MouseEvent) => { event.stopPropagation(); if (event.ctrlKey || event.metaKey) { setSelectedPanels(prevSelected => prevSelected.includes(panelId) ? prevSelected.filter(id => id !== panelId) : [...prevSelected, panelId]); } else { setSelectedPanels([panelId]); } }, []);
   const canvasClasses = useMemo(() => { const base = `relative overflow-hidden shadow-lg border-2 transition-all duration-300`; const themeBorders = theme === 'dark' ? 'border-gray-700' : 'border-gray-300'; const gridPattern = showGrid ? (theme === 'dark' ? 'bg-grid-dark' : 'bg-grid-light') : ''; return `${base} ${themeBorders} ${gridPattern}`; }, [theme, showGrid]);
@@ -340,7 +334,9 @@ const DrawingCanvas: React.FC = () => {
       <Toolbar theme={theme} onAddPanel={onAddPanel} onUndo={() => dispatch({ type: 'UNDO' })} onRedo={() => dispatch({ type: 'REDO' })} onExportConfig={handleExportConfig} onImportConfig={handleImportConfig} onExportPNG={handleExportPNG} onRemoveSelectedPanels={onRemoveSelectedPanels} onToggleTheme={onToggleTheme} onCopySelectedPanels={onCopySelectedPanels} onPastePanels={onPastePanels} isUndoDisabled={isUndoDisabled} isRedoDisabled={isRedoDisabled} isDeleteDisabled={isDeleteDisabled} isCopyDisabled={isCopyDisabled} isPasteDisabled={isPasteDisabled} />
       <CanvasControls canvasWidth={canvasWidth} canvasHeight={canvasHeight} canvasBgColor={canvasBgColor} canvasFgColor={canvasFgColor} canvasBorderRadius={canvasBorderRadius} panelRoundedCorners={panelRoundedCorners} showGrid={showGrid} theme={theme} onUpdateCanvasDimensions={onUpdateCanvasDimensions} onUpdateCanvasColors={onUpdateCanvasColors} onSetCanvasBorderRadius={onSetCanvasBorderRadius} onTogglePanelRoundedCorners={onTogglePanelRoundedCorners} onToggleGrid={onToggleGrid} />
       <div ref={canvasRef} className={canvasClasses} style={{ width: canvasWidth, height: canvasHeight, backgroundColor: showGrid ? undefined : canvasBgColor, borderColor: canvasFgColor, borderRadius: `${canvasBorderRadius}px`, backgroundImage: showGrid ? `linear-gradient(${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} 1px, transparent 1px), linear-gradient(90deg, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'} 1px, transparent 1px)` : 'none', backgroundSize: showGrid ? '20px 20px' : 'auto' }} onClick={handleCanvasClick}>
-        {panels.map((panel) => ( <Panel key={panel.id} panel={panel} isSelected={selectedPanels.includes(panel.id)} onSelect={handlePanelClick} onUpdatePosition={onUpdatePanelPosition} onUpdateDimensions={onUpdatePanelDimensions} onUpdateText={onUpdatePanelText} onUpdateStyle={onUpdatePanelStyle} canvasWidth={canvasWidth} canvasHeight={canvasHeight} canvasFgColor={canvasFgColor} panelRoundedCorners={panelRoundedCorners} theme={theme} onInteractionStart={handlePanelInteractionStart} /> ))}
+        {panels.map((panel) => ( <Panel key={panel.id} panel={panel} isSelected={selectedPanels.includes(panel.id)} onSelect={handlePanelClick} onUpdatePosition={onUpdatePanelPosition} onUpdateDimensions={onUpdatePanelDimensions} onUpdateText={onUpdatePanelText} onUpdateStyle={onUpdatePanelStyle} canvasWidth={canvasWidth} canvasHeight={canvasHeight} canvasFgColor={canvasFgColor} panelRoundedCorners={panelRoundedCorners} theme={theme} onInteractionStart={handlePanelInteractionStart} onEdit={function (panelId: string): void {
+          throw new Error('Function not implemented.');
+        } } /> ))}
         {guideLines.map((line) => ( <div key={line.id} className="absolute bg-red-500 z-[9999]" style={{ left: `${line.x1}px`, top: `${line.y1}px`, width: line.orientation === 'vertical' ? '2px' : `${Math.abs(line.x2 - line.x1)}px`, height: line.orientation === 'horizontal' ? '2px' : `${Math.abs(line.y2 - line.y1)}px`, }} /> ))}
         <div className={`absolute bottom-0 left-0 w-full h-2 cursor-ns-resize z-50`} style={{ backgroundColor: canvasFgColor }} onMouseDown={(e) => handleCanvasResizeStart(e, 's')} />
         <div className={`absolute top-0 right-0 h-full w-2 cursor-ew-resize z-50`} style={{ backgroundColor: canvasFgColor }} onMouseDown={(e) => handleCanvasResizeStart(e, 'e')} />

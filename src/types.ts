@@ -1,4 +1,4 @@
-export type ShapeType = 'rectangle' | 'circle' | 'textBlock' | 'triangle' | 'line' | 'arrow' |  'star' | 'polygon' | 'polyline' | 'heart' | 'cloud' | 'hexagon';
+export type ShapeType = 'rectangle' | 'circle' | 'textBlock' | 'triangle' | 'line' | 'arrow' |  'star' | 'polygon' | 'polyline' | 'heart' | 'cloud' | 'hexagon' | 'chevron' | 'diamond';;
 
 export interface PanelInterface {
   id: string;
@@ -23,9 +23,7 @@ export interface CanvasConfig {
   canvasHeight: number;
   canvasBgColor: string;
   canvasFgColor: string;
-  // Renamed for clarity: now applies only to panels
   panelRoundedCorners: boolean;
-  // New: for canvas specific border radius (numeric value in pixels)
   canvasBorderRadius: number; 
   showGrid: boolean;
   theme: 'light' | 'dark';
@@ -48,9 +46,7 @@ export type CanvasAction =
   | { type: 'DELETE_PANELS'; payload: { ids: string[] } }
   | { type: 'SET_CANVAS_DIMENSIONS'; payload: { width: number; height: number } }
   | { type: 'SET_CANVAS_COLORS'; payload: { bgColor: string; fgColor: string } }
-  // Renamed action to specifically toggle panel rounded corners
   | { type: 'TOGGLE_PANEL_ROUNDED_CORNERS' }
-  // New action to set the canvas's border radius
   | { type: 'SET_CANVAS_BORDER_RADIUS'; payload: { radius: number } }
   | { type: 'TOGGLE_GRID' }
   | { type: 'TOGGLE_THEME' }

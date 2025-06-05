@@ -7,9 +7,10 @@ export const initialCanvasConfig: CanvasConfig = {
   canvasHeight: 720,
   canvasBgColor: '#ffffff',
   canvasFgColor: '#000000',
-  canvasBorderRadius: 8, // Default to a small border radius for the canvas
+  canvasBorderRadius: 8,
   showGrid: false,
   theme: 'light',
+  panelRoundedCorners: false
 };
 
 export const initialState: CanvasState = {
@@ -89,7 +90,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
     case 'SET_CANVAS_BORDER_RADIUS':
       newConfig = {
         ...state.config,
-        canvasBorderRadius: Math.max(0, action.payload.radius), // Ensure radius is not negative
+        canvasBorderRadius: Math.max(0, action.payload.radius),
       };
       break;
     case 'TOGGLE_GRID':
@@ -149,7 +150,7 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
           ...action.payload,
           panels: loadedPanels,
           theme: action.payload.theme || 'light',
-          canvasBorderRadius: action.payload.canvasBorderRadius ?? 8, // Default to 8 if not in payload
+          canvasBorderRadius: action.payload.canvasBorderRadius ?? 8,
         },
         hasUnsavedChanges: false,
         history: [{ 
@@ -208,7 +209,6 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       copiedPanels: newCopiedPanels !== null ? newCopiedPanels : state.copiedPanels,
     };
   } else if (newCopiedPanels !== null && JSON.stringify(newCopiedPanels) !== JSON.stringify(state.copiedPanels)) {
-    // This case only handles copiedPanels update without config change (e.g., just copying)
     return {
       ...state,
       copiedPanels: newCopiedPanels,
