@@ -183,7 +183,6 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         ...state,
         config: state.history[newHistoryIndexRedo],
         historyIndex: newHistoryIndexRedo,
-        // hasUnsavedChanges should be true if not at the very first state (after an undo)
         hasUnsavedChanges: newHistoryIndexRedo !== 0,
       };
     default:

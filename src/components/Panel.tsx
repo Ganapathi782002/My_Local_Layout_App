@@ -9,10 +9,7 @@ interface PanelProps {
   onUpdatePosition: (id: string, x: number, y: number) => void;
   onUpdateDimensions: (id: string, width: number, height: number) => void;
   onUpdateText: (id: string, text: string) => void;
-  onUpdateStyle: (
-    id: string,
-    styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType' | 'borderRadius' | 'textColor'>> & { borderRadius?: number | undefined, textColor?: string | undefined }
-  ) => void;
+  onUpdateStyle: (id: string, styles: Partial<PanelInterface>) => void;
   canvasWidth: number;
   canvasHeight: number;
   canvasFgColor: string;
@@ -27,11 +24,9 @@ export const Panel: React.FC<PanelProps> = ({
   isSelected,
   onSelect,
   onUpdateText,
-  canvasFgColor,
   panelRoundedCorners,
   theme,
   onInteractionStart,
-  onEdit,
   onUpdateStyle,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -45,7 +40,6 @@ export const Panel: React.FC<PanelProps> = ({
     borderRadius
   } = panel;
 
-  // 1. Define renderShape FIRST
   const renderShape = useCallback(() => {
     if (width <= 0 || height <= 0) { return null; }
 
@@ -66,7 +60,7 @@ export const Panel: React.FC<PanelProps> = ({
       case 'circle':
         const cxCircle = width / 2; const cyCircle = height / 2; const radiusCircle = Math.max(0, (Math.min(width, height) / 2) - (directStrokeThickness > 0 ? directStrokeThickness / 2 : 0)); if (radiusCircle <= 0) return null;
         return (<svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet"><circle cx={cxCircle} cy={cyCircle} r={radiusCircle} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness} /></svg>);
-      case 'polygon': // Pentagon
+      case 'polygon':
         const numSidesPentagon = 5; const centerXPentagon = width / 2; const centerYPentagon = height / 2; const RPentagon = Math.max(0, (Math.min(width, height) / 2) - (directStrokeThickness > 0 ? directStrokeThickness / 2 : 0)); if (RPentagon <= 0) return null; const angleOffsetPentagon = -Math.PI / 2; let polygonPointsPentagon = ""; for (let i = 0; i < numSidesPentagon; i++) { const angle = (i / numSidesPentagon) * 2 * Math.PI + angleOffsetPentagon; polygonPointsPentagon += `${centerXPentagon + RPentagon * Math.cos(angle)},${centerYPentagon + RPentagon * Math.sin(angle)} `; }
         return (<svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet"><polygon points={polygonPointsPentagon.trim()} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness} strokeLinejoin={svgStrokeLinejoin} /></svg>);
       case 'hexagon':
@@ -90,39 +84,12 @@ export const Panel: React.FC<PanelProps> = ({
         const cloudViewBox = "0 0 100 60";
         return (<svg width="100%" height="100%" viewBox={cloudViewBox} preserveAspectRatio="xMidYMid meet"><path d={cloudPathData} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness > 0 ? "1.5" : "0"} strokeLinejoin={svgStrokeLinejoin} strokeLinecap={svgStrokeLinecap} /></svg>);
       case 'diamond':
-        const halfW = width / 2;
-        const halfH = height / 2;
-        const diamondInset = directStrokeThickness > 0 ? directStrokeThickness / 2 : 0;
-        const diamondPoints = `${halfW},${diamondInset} ${width - diamondInset},${halfH} ${halfW},${height - diamondInset} ${diamondInset},${halfH}`;
+        const halfW = width / 2; const halfH = height / 2; const diamondInset = directStrokeThickness > 0 ? directStrokeThickness / 2 : 0; const diamondPoints = `${halfW},${diamondInset} ${width - diamondInset},${halfH} ${halfW},${height - diamondInset} ${diamondInset},${halfH}`;
         return (<svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet"><polygon points={diamondPoints.trim()} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness} strokeLinejoin={svgStrokeLinejoin} /></svg>);
       case 'chevron':
-        const pointinessFactor = 0.6;
-        const thicknessFactor = 0.3;
-        const midY = height / 2;
-        const inset = directStrokeThickness / 2;
-        if (width < (height * thicknessFactor * 2) + (2 * inset) ) return null;
-        const p1x = inset;
-        const p1y = midY - (height * thicknessFactor / 2) + inset;
-        const p2x = inset;
-        const p2y = inset;
-        const p3x = width - inset;
-        const p3y = midY;
-        const p4x = inset;
-        const p4y = height - inset;
-        const p5x = inset;
-        const p5y = midY + (height * thicknessFactor / 2) - inset;
-        const p6x = inset + (width * pointinessFactor * (1-thicknessFactor));
-        const p6y = midY;
-        const chevronPoints = `
-          ${p1x},${p1y} 
-          ${p2x},${p2y} 
-          ${p3x},${p3y} 
-          ${p4x},${p4y} 
-          ${p5x},${p5y} 
-          ${p6x},${p6y}`;
+        const pointinessFactor = 0.6; const thicknessFactor = 0.3; const midY = height / 2; const inset = directStrokeThickness / 2; if (width < (height * thicknessFactor * 2) + (2 * inset) ) return null; const p1x = inset; const p1y = midY - (height * thicknessFactor / 2) + inset; const p2x = inset; const p2y = inset; const p3x = width - inset; const p3y = midY; const p4x = inset; const p4y = height - inset; const p5x = inset; const p5y = midY + (height * thicknessFactor / 2) - inset; const p6x = inset + (width * pointinessFactor * (1-thicknessFactor)); const p6y = midY; const chevronPoints = `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y} ${p4x},${p4y} ${p5x},${p5y} ${p6x},${p6y}`;
         return (<svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet"><polygon points={chevronPoints.trim()} fill={currentFillColor} stroke={strokeColor} strokeWidth={directStrokeThickness} strokeLinejoin={svgStrokeLinejoin} /></svg>);
       
-      // `rectangle` and `textBlock` are styled by the main div, so renderShape returns null for them.
       case 'rectangle':
       case 'textBlock':
       default:
@@ -150,7 +117,7 @@ export const Panel: React.FC<PanelProps> = ({
       left: x, top: y, width: width, height: height,
       zIndex: isSelected ? 50 : zIndex,
     };
-    if (renderShape() === null) { 
+    if (renderShape() === null) {
       styles.backgroundColor = backgroundColor;
       styles.borderColor = borderColor;
       styles.borderWidth = borderWidth;
@@ -160,11 +127,10 @@ export const Panel: React.FC<PanelProps> = ({
       }
     }
     return styles;
-  }, [x, y, width, height, zIndex, isSelected, backgroundColor, borderColor, borderWidth, borderStyle, shapeType, borderRadius, renderShape]); // Added renderShape
+  }, [x, y, width, height, zIndex, isSelected, backgroundColor, borderColor, borderWidth, borderStyle, shapeType, borderRadius, renderShape]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    if (e.target instanceof HTMLTextAreaElement) { return; }
+    if (e.button !== 0 || e.target instanceof HTMLTextAreaElement) return;
     const target = e.target as HTMLElement;
     if (target.dataset.resizer) {
       onInteractionStart(id, e, 'resize');
@@ -177,9 +143,7 @@ export const Panel: React.FC<PanelProps> = ({
 
   const handlePanelClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.dataset.resizer || target.dataset.editIcon) {
-      return;
-    }
+    if (target.dataset.resizer || target.dataset.editIcon) return;
     onSelect(id, e);
   }, [id, onSelect]);
 
@@ -192,40 +156,32 @@ export const Panel: React.FC<PanelProps> = ({
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       width: '100%', height: '100%',
       position: 'absolute', top: 0, left: 0, pointerEvents: 'none',
-      boxSizing: 'border-box',
+      boxSizing: 'border-box', padding: '0px',
     };
     if (shapeType === 'textBlock') {
       return { ...baseStyle, padding: '0.5rem' };
     }
-    return { ...baseStyle, padding: '0px' };
+    return baseStyle;
   }, [shapeType]);
 
-  const textAreaPointerEvents = useMemo(() => {
-    return isSelected || editingText ? 'auto' : 'none';
-  }, [isSelected, editingText]);
-
-  const showTextArea = useMemo(() => {
-    return shapeType === 'textBlock';
-  }, [shapeType]);
-
-  const handleEditClick = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation();
-    setShowEditOverlay(true);
-  }, [id]);
-
-
-  const handleCloseEditOverlay = useCallback(() => {
-    setShowEditOverlay(false);
-  }, []);
+  const textAreaPointerEvents = useMemo(() => (isSelected || editingText ? 'auto' : 'none'), [isSelected, editingText]);
+  const showTextArea = useMemo(() => shapeType === 'textBlock', [shapeType]);
+  const handleEditClick = useCallback((event: React.MouseEvent) => { event.stopPropagation(); setShowEditOverlay(true); }, []);
+  const handleCloseEditOverlay = useCallback(() => { setShowEditOverlay(false); }, []);
 
   const editIconPositionClasses = useMemo(() => {
-    if (shapeType === 'line') {
-      return 'top-1 left-1';
-    }
+    if (shapeType === 'line') return 'top-1 left-1';
     return 'top-1 right-1';
   }, [shapeType]);
 
-  const handleBorderColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { onUpdateStyle(id, { borderColor: e.target.value }); }, [id, onUpdateStyle]);
+  const handleBorderColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStyles: Partial<PanelInterface> = { borderColor: e.target.value };
+    if (panel.borderWidth === 0) {
+        newStyles.borderWidth = 2;
+    }
+    onUpdateStyle(id, newStyles);
+  }, [id, onUpdateStyle, panel.borderWidth]);
+
   const handleFillColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { onUpdateStyle(id, { backgroundColor: e.target.value }); }, [id, onUpdateStyle]);
   const handleFontColorChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { onUpdateStyle(id, { textColor: e.target.value }); }, [id, onUpdateStyle]);
   const handleBorderRadiusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { const value = parseInt(e.target.value, 10); onUpdateStyle(id, { borderRadius: isNaN(value) ? undefined : value }); }, [id, onUpdateStyle]);
@@ -240,23 +196,15 @@ export const Panel: React.FC<PanelProps> = ({
         onClick={handlePanelClick}
         data-panel-id={id}
       >
-        {/* SVG Shape Layer */}
         <div style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, pointerEvents: 'none' }}>
           {renderShape()}
         </div>
 
-        {/* Text Area (only for textBlock) */}
         {showTextArea && (
           <div style={{...innerContentStyle, pointerEvents: 'none' }}>
             <textarea
-              className={`w-full h-full text-center outline-none resize-none font-mono text-sm leading-tight bg-transparent
-                ${!isSelected && !editingText && text.trim() === '' ? 'placeholder-gray-500 dark:placeholder-gray-400' : ''}
-              `}
-              style={{
-                color: textColor,
-                pointerEvents: textAreaPointerEvents,
-                boxSizing: 'border-box',
-              }}
+              className={`w-full h-full text-center outline-none resize-none font-mono text-sm leading-tight bg-transparent ${!isSelected && !editingText && text.trim() === '' ? 'placeholder-gray-500 dark:placeholder-gray-400' : ''}`}
+              style={{ color: textColor, pointerEvents: textAreaPointerEvents, boxSizing: 'border-box' }}
               value={text}
               onChange={handleTextChange}
               onFocus={handleTextareaFocus}
@@ -275,10 +223,7 @@ export const Panel: React.FC<PanelProps> = ({
             />
             <div
               data-edit-icon="true"
-              className={`absolute w-5 h-5 flex items-center justify-center rounded-full cursor-pointer
-                bg-blue-500 dark:bg-blue-400 text-white shadow-md
-                ${editIconPositionClasses} 
-              `}
+              className={`absolute w-5 h-5 flex items-center justify-center rounded-full cursor-pointer bg-blue-500 dark:bg-blue-400 text-white shadow-md ${editIconPositionClasses}`}
               onClick={handleEditClick}
               title="Edit Panel"
             >
@@ -288,23 +233,20 @@ export const Panel: React.FC<PanelProps> = ({
         )}
       </div>
 
-      {/* Edit Overlay */}
       {showEditOverlay && (
         <div
-          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[1000]" // Ensure high z-index
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[1000]"
           onClick={handleCloseEditOverlay}
         >
           <div
-            className={`p-5 rounded-lg shadow-xl w-auto min-w-[300px] max-w-md relative
-              ${theme === 'dark' ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-800'}`}
+            className={`p-5 rounded-lg shadow-xl w-auto min-w-[300px] max-w-md relative ${theme === 'dark' ? 'bg-gray-700 text-gray-100' : 'bg-white text-gray-800'}`}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Edit Panel: {shapeType}</h3>
+              <h3 className="text-lg font-semibold capitalize">Edit: {shapeType}</h3>
               <button
                 onClick={handleCloseEditOverlay}
-                className={`p-1 rounded-full hover:bg-opacity-20
-                  ${theme === 'dark' ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-500 hover:bg-gray-200'}`}
+                className={`p-1 rounded-full hover:bg-opacity-20 ${theme === 'dark' ? 'text-gray-300 hover:bg-gray-600' : 'text-gray-500 hover:bg-gray-200'}`}
                 title="Close"
               >
                 <FiX size={18} />
@@ -312,8 +254,7 @@ export const Panel: React.FC<PanelProps> = ({
             </div>
 
             <div className="space-y-3">
-              {/* Background Color */}
-              {(shapeType !== 'line' && shapeType !== 'polyline') && ( // Lines/polylines usually don't have a "fill"
+              {(shapeType !== 'line' && shapeType !== 'polyline' && shapeType !== 'arrow') && (
                 <div>
                   <label htmlFor={`bgColor-${id}`} className="block text-xs font-medium mb-1">Background Color:</label>
                   <input type="color" id={`bgColor-${id}`} value={backgroundColor || '#ffffff'} onChange={handleFillColorChange} className="w-full h-8 p-0 border-none rounded" />
@@ -328,7 +269,7 @@ export const Panel: React.FC<PanelProps> = ({
               {showTextArea && (
                 <div>
                   <label htmlFor={`textColor-${id}`} className="block text-xs font-medium mb-1">Text Color:</label>
-                  <input type="color" id={`textColor-${id}`} value={textColor || canvasFgColor || '#000000'} onChange={handleFontColorChange} className="w-full h-8 p-0 border-none rounded" />
+                  <input type="color" id={`textColor-${id}`} value={textColor || '#000000'} onChange={handleFontColorChange} className="w-full h-8 p-0 border-none rounded" />
                 </div>
               )}
 

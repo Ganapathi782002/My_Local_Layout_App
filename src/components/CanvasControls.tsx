@@ -22,106 +22,112 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
   canvasBgColor,
   canvasFgColor,
   canvasBorderRadius,
-  panelRoundedCorners,
+  //panelRoundedCorners,
   showGrid,
   theme,
   onUpdateCanvasDimensions,
   onUpdateCanvasColors,
   onSetCanvasBorderRadius,
-  onTogglePanelRoundedCorners,
+  //onTogglePanelRoundedCorners,
   onToggleGrid,
 }) => {
-  const textColor = theme === 'dark' ? 'text-gray-600' : 'text-black-400';
-  const bgColor = theme === 'dark' ? 'bg-white-800' : 'bg-white';
-  const borderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300';
-  const inputClasses = `p-2 rounded border ${borderColor} ${bgColor} ${textColor} focus:outline-none focus:ring-2 ${theme === 'dark' ? 'focus:ring-blue-600' : 'focus:ring-blue-400'}`;
+  const mainTextColor = theme === 'dark' ? 'text-gray-200' : 'text-gray-800';
+  const labelTextColor = theme === 'dark' ? 'text-gray-400' : 'text-gray-600';
+  const componentBgColor = theme === 'dark' ? 'bg-gray-800' : 'bg-white';
+  const componentBorderColor = theme === 'dark' ? 'border-gray-700' : 'border-gray-300';
+  
+  const inputBg = theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50';
+  const inputText = theme === 'dark' ? 'text-gray-200' : 'text-gray-900';
+  const inputBorder = theme === 'dark' ? 'border-gray-600' : 'border-gray-300';
+  const focusRing = theme === 'dark' ? 'focus:ring-blue-500' : 'focus:ring-blue-500';
+
+  const inputBaseClasses = `p-2 rounded border ${inputBorder} ${inputBg} ${inputText} focus:outline-none focus:ring-2 ${focusRing}`;
+  const labelBaseClasses = `block text-sm font-medium mb-1 ${labelTextColor}`;
+
+  const colorInputClasses = `w-full h-10 p-0 border-none rounded cursor-pointer overflow-hidden ${inputBaseClasses.replace('p-2', '')}`;
 
   return (
-    // The main container for the "Canvas Settings" ribbon
-    <div className={`w-full max-w-7xl mx-auto p-4 rounded-lg shadow-xl mb-4 ${bgColor} ${borderColor} border ${textColor} transition-colors duration-300`}>
-      <h2 className="text-xl font-semibold mb-4 text-center">Canvas Settings</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className={`w-full max-w-7xl mx-auto p-4 rounded-lg shadow-xl mb-6 ${componentBgColor} ${componentBorderColor} border ${mainTextColor} transition-colors duration-300`}>
+      <h2 className={`text-xl font-semibold mb-6 text-center ${mainTextColor}`}>Canvas Settings</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        {/* Canvas Dimensions */}
         <div className="flex flex-col">
-          <label className="text-sm font-medium mb-1">Canvas Dimensions</label>
+          <label className={labelBaseClasses}>Canvas Dimensions (px)</label>
           <div className="flex space-x-2">
             <input
               type="number"
               value={canvasWidth}
-              onChange={(e) => onUpdateCanvasDimensions(parseInt(e.target.value) || 0, canvasHeight)}
-              className={inputClasses}
+              onChange={(e) => onUpdateCanvasDimensions(parseInt(e.target.value, 10) || 0, canvasHeight)}
+              className={`${inputBaseClasses} w-full`}
               placeholder="Width"
               min="100"
+              title="Canvas Width"
             />
             <input
               type="number"
               value={canvasHeight}
-              onChange={(e) => onUpdateCanvasDimensions(canvasWidth, parseInt(e.target.value) || 0)}
-              className={inputClasses}
+              onChange={(e) => onUpdateCanvasDimensions(canvasWidth, parseInt(e.target.value, 10) || 0)}
+              className={`${inputBaseClasses} w-full`}
               placeholder="Height"
               min="100"
+              title="Canvas Height"
             />
           </div>
         </div>
 
+        {/* Background Color */}
         <div className="flex flex-col">
-          <label className="text-sm font-medium mb-1">Background Color</label>
+          <label className={labelBaseClasses}>Background Color</label>
           <input
             type="color"
             value={canvasBgColor}
             onChange={(e) => onUpdateCanvasColors(e.target.value, canvasFgColor)}
-            className={`w-full h-10 p-0 border-none rounded overflow-hidden cursor-pointer ${inputClasses}`}
+            className={colorInputClasses} 
             title="Canvas Background Color"
           />
         </div>
 
+        {/* Border Color */}
         <div className="flex flex-col">
-          <label className="text-sm font-medium mb-1">Border Color</label>
+          <label className={labelBaseClasses}>Border Color</label>
           <input
             type="color"
             value={canvasFgColor}
             onChange={(e) => onUpdateCanvasColors(canvasBgColor, e.target.value)}
-            className={`w-full h-10 p-0 border-none rounded overflow-hidden cursor-pointer ${inputClasses}`}
+            className={colorInputClasses}
             title="Canvas Border Color"
           />
         </div>
 
+        {/* Canvas Border Radius */}
         <div className="flex flex-col">
-          <label htmlFor="canvasBorderRadius" className="text-sm font-medium mb-1">Canvas Border Radius (px)</label>
+          <label htmlFor="canvasBorderRadius" className={labelBaseClasses}>Canvas Border Radius (px)</label>
           <input
             id="canvasBorderRadius"
             type="number"
             value={canvasBorderRadius}
-            onChange={(e) => onSetCanvasBorderRadius(parseInt(e.target.value) || 0)}
-            className={inputClasses}
+            onChange={(e) => onSetCanvasBorderRadius(parseInt(e.target.value, 10) || 0)}
+            className={`${inputBaseClasses} w-full`}
             min="0"
             max="100"
+            title="Canvas Border Radius"
           />
         </div>
 
         {/* Show Grid Toggle */}
-        <div className="flex flex-col justify-end">
-          <label className="inline-flex items-center cursor-pointer">
+        <div className="flex flex-col justify-center"> {/* Aligned with other inputs better */}
+          <label className={labelBaseClasses}>Grid</label>
+          <label className="inline-flex items-center cursor-pointer mt-1"> {/* Added mt-1 for alignment with inputs that have labels above */}
             <input
               type="checkbox"
               className="sr-only peer"
               checked={showGrid}
               onChange={onToggleGrid}
             />
-            {/* Custom toggle switch styling */}
-            <div className={`relative w-11 h-6 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-4 ${theme === 'dark' ? 'peer-focus:ring-blue-800' : 'peer-focus:ring-blue-300'} rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${theme === 'dark' ? 'peer-checked:bg-blue-600' : 'peer-checked:bg-blue-600'}`}></div>
-            <span className={`ms-3 text-sm font-medium ${textColor}`}>Show Grid</span>
-          </label>
-        </div>
-
-        {/* Toggle Panel Rounded Corners */}
-        <div className="flex flex-col justify-end">
-          <label className="inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="sr-only peer"
-              checked={panelRoundedCorners}
-              onChange={onTogglePanelRoundedCorners}
-            />
+            <div className={`relative w-11 h-6 ${theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'} peer-focus:outline-none peer-focus:ring-4 ${theme === 'dark' ? 'peer-focus:ring-blue-800' : 'peer-focus:ring-blue-300'} rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${theme === 'dark' ? 'peer-checked:bg-blue-600' : 'peer-checked:bg-blue-600'}`}></div>
+            <span className={`ms-3 text-sm font-medium ${mainTextColor}`}>Show Grid</span>
           </label>
         </div>
       </div>
