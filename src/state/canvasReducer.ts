@@ -3,7 +3,7 @@ import { generateUniqueId } from '../utils/idGenerator';
 
 export const initialCanvasConfig: CanvasConfig = {
   panels: [],
-  canvasWidth: 1280,
+  canvasWidth: 1200,
   canvasHeight: 720,
   canvasBgColor: '#ffffff',
   canvasFgColor: '#000000',
