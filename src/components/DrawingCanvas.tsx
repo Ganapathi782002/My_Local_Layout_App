@@ -1,11 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useCanvasState } from '../hooks/useCanvasState';
 import { Panel } from '../components/Panel';
-import Toolbar from './ToolBar';
-import CanvasControls from '../components/CanvasControls';
+import Ribbon from './Ribbon';
 import { exportCanvasAsPNG, exportCanvasConfigAsJSON, importCanvasConfig } from '../utils/fileOperations';
 import { generateUniqueId } from '../utils/idGenerator';
 import { PanelInterface, ShapeType } from '../types';
+import ContextMenu from './ContextMenu';
 
 const DEFAULT_PANEL_STYLES: { [key in ShapeType]?: Partial<PanelInterface> } = {
   rectangle: { width: 150, height: 100, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 2, borderStyle: 'solid', text: '' },
@@ -13,7 +13,6 @@ const DEFAULT_PANEL_STYLES: { [key in ShapeType]?: Partial<PanelInterface> } = {
   textBlock: { width: 200, height: 50, backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0, text: 'Click to Type' },
 };
 
-// Interfaces for visual guides
 interface GuideLine {
   id: string;
   x1: number;
@@ -36,7 +35,10 @@ const DISTANCE_INDICATOR_THRESHOLD = 40;
 const DrawingCanvas: React.FC = () => {
   const { state, dispatch } = useCanvasState();
   const { config, history, historyIndex } = state;
-  const { panels, canvasWidth, canvasHeight, canvasBgColor, canvasFgColor, panelRoundedCorners, canvasBorderRadius, showGrid, theme } = config;
+  const {
+    panels, canvasWidth, canvasHeight, canvasBgColor, canvasFgColor,
+    panelRoundedCorners, canvasBorderRadius, showGrid, theme
+  } = config;
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
@@ -45,7 +47,12 @@ const DrawingCanvas: React.FC = () => {
   const [guideLines, setGuideLines] = useState<GuideLine[]>([]);
   const [distanceIndicators, setDistanceIndicators] = useState<DistanceIndicator[]>([]);
 
-  // Refs for interactions
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    panelId: string;
+  } | null>(null);
+
   const rafIdRef = useRef<number | null>(null);
   const draggingPanelIdRef = useRef<string | null>(null);
   const resizingPanelIdRef = useRef<string | null>(null);
@@ -91,21 +98,50 @@ const DrawingCanvas: React.FC = () => {
     dispatch({ type: 'ADD_PANEL', payload: newPanel });
     setSelectedPanels([newPanel.id]);
   }, [dispatch, panels]);
-  
-  // These callbacks are for passing to child components like the Toolbar or individual Panels if needed.
+
   const onUpdatePanelPosition = useCallback((id: string, newX: number, newY: number) => { dispatch({ type: 'UPDATE_PANEL_POSITION', payload: { id, x: newX, y: newY } }); }, [dispatch]);
   const onUpdatePanelDimensions = useCallback((id: string, newWidth: number, newHeight: number) => { dispatch({ type: 'UPDATE_PANEL_DIMENSIONS', payload: { id, width: newWidth, height: newHeight } }); }, [dispatch]);
   const onUpdatePanelText = useCallback((id: string, newText: string) => { dispatch({ type: 'UPDATE_PANEL_TEXT', payload: { id, text: newText } }); }, [dispatch]);
-  const onUpdatePanelStyle = useCallback((id: string, styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType'>>) => { dispatch({ type: 'UPDATE_PANEL_STYLE', payload: { id, styles } }); }, [dispatch]);
+  const onUpdatePanelStyle = useCallback((id: string, styles: Partial<PanelInterface>) => { dispatch({ type: 'UPDATE_PANEL_STYLE', payload: { id, styles } }); }, [dispatch]);
   const onRemoveSelectedPanels = useCallback(() => { if (selectedPanels.length > 0) { dispatch({ type: 'DELETE_PANELS', payload: { ids: selectedPanels } }); setSelectedPanels([]); } }, [dispatch, selectedPanels]);
   const onUpdateCanvasDimensions = useCallback((width: number, height: number) => { dispatch({ type: 'SET_CANVAS_DIMENSIONS', payload: { width, height } }); }, [dispatch]);
   const onUpdateCanvasColors = useCallback((bgColor: string, fgColor: string) => { dispatch({ type: 'SET_CANVAS_COLORS', payload: { bgColor, fgColor } }); }, [dispatch]);
-  const onTogglePanelRoundedCorners = useCallback(() => { dispatch({ type: 'TOGGLE_PANEL_ROUNDED_CORNERS' }); }, [dispatch]);
   const onSetCanvasBorderRadius = useCallback((radius: number) => { dispatch({ type: 'SET_CANVAS_BORDER_RADIUS', payload: { radius } }); }, [dispatch]);
   const onToggleGrid = useCallback(() => { dispatch({ type: 'TOGGLE_GRID' }); }, [dispatch]);
   const onToggleTheme = useCallback(() => { dispatch({ type: 'TOGGLE_THEME' }); }, [dispatch]);
   const onCopySelectedPanels = useCallback(() => { if (selectedPanels.length > 0) { dispatch({ type: 'COPY_PANELS', payload: { ids: selectedPanels } }); } }, [dispatch, selectedPanels]);
   const onPastePanels = useCallback(() => { dispatch({ type: 'PASTE_PANELS' }); }, [dispatch]);
+  const handleCloseContextMenu = useCallback(() => {
+    console.log("!!! Closing context menu right now !!!");
+    setContextMenu(null);
+  }, []);
+  const handleContextMenu = useCallback((event: React.MouseEvent, panelId: string) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY, panelId })
+    setSelectedPanels(prevSelected => 
+      prevSelected.includes(panelId) ? prevSelected : [panelId]
+    );
+  }, []);
+  const handleDeleteFromMenu = useCallback(() => {
+    if (contextMenu) {
+      dispatch({ type: 'DELETE_PANELS', payload: { ids: [contextMenu.panelId] } });
+      handleCloseContextMenu();
+    }
+  }, [contextMenu, dispatch, handleCloseContextMenu]);
+
+  const handleBringToFront = useCallback(() => {
+    if (contextMenu) {
+      dispatch({ type: 'BRING_TO_FRONT', payload: { id: contextMenu.panelId } });
+      handleCloseContextMenu();
+    }
+  }, [contextMenu, dispatch, handleCloseContextMenu]);
+  
+  const handleSendToBack = useCallback(() => {
+    if (contextMenu) {
+      dispatch({ type: 'SEND_TO_BACK', payload: { id: contextMenu.panelId } });
+      handleCloseContextMenu();
+    }
+  }, [contextMenu, dispatch, handleCloseContextMenu]);
 
   const getCursorStyle = (direction: string) => {
     switch (direction) { case 's': return 'ns-resize'; case 'e': return 'ew-resize'; case 'se': return 'nwse-resize'; default: return 'default'; }
@@ -123,15 +159,16 @@ const DrawingCanvas: React.FC = () => {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
     }
-    if (guideLines.length > 0) setGuideLines([]);
-    if (distanceIndicators.length > 0) setDistanceIndicators([]);
+    
+    setGuideLines([]);
+    setDistanceIndicators([]);
 
     if (handleGlobalMouseMoveRef.current) {
       document.removeEventListener('mousemove', handleGlobalMouseMoveRef.current);
     }
     document.removeEventListener('mouseup', handleGlobalMouseUp);
     document.body.style.cursor = 'default';
-  }, [guideLines, distanceIndicators]);
+  }, []);
 
   const internalHandleGlobalMouseMove = useCallback((e: MouseEvent) => {
     const dx = e.clientX - startMouseXRef.current;
@@ -142,7 +179,7 @@ const DrawingCanvas: React.FC = () => {
     if (isResizingCanvasRef.current) {
         const newWidth = Math.max(MIN_CANVAS_DIMENSION, startCanvasWidthRef.current + (canvasResizeDirectionRef.current.includes('e') ? dx : 0));
         const newHeight = Math.max(MIN_CANVAS_DIMENSION, startCanvasHeightRef.current + (canvasResizeDirectionRef.current.includes('s') ? dy : 0));
-        dispatch({ type: 'SET_CANVAS_DIMENSIONS', payload: { width: newWidth, height: newHeight } }); // Direct dispatch
+        dispatch({ type: 'SET_CANVAS_DIMENSIONS', payload: { width: newWidth, height: newHeight } });
         setGuideLines([]);
         setDistanceIndicators([]);
         return;
@@ -153,7 +190,6 @@ const DrawingCanvas: React.FC = () => {
     
     const currentPanel = panels.find(p => p.id === currentPanelId);
     if (!currentPanel) return;
-
     if (draggingPanelIdRef.current) {
         let snappedX = startPanelXRef.current + dx;
         let snappedY = startPanelYRef.current + dy;
@@ -205,14 +241,14 @@ const DrawingCanvas: React.FC = () => {
         if (distLeft > 0 && distLeft < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'left', value: `${distLeft.toFixed(0)}px`, style: { left: `${distLeft / 2}px`, top: `${snappedY + currentPanel.height / 2}px`, transform: 'translateY(-50%)' }}); }
         if (distRight > 0 && distRight < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'right', value: `${distRight.toFixed(0)}px`, style: { right: `${distRight / 2}px`, top: `${snappedY + currentPanel.height / 2}px`, transform: 'translateY(-50%)' }}); }
         
-        dispatch({ type: 'UPDATE_PANEL_POSITION', payload: { id: currentPanelId, x: snappedX, y: snappedY } }); // Direct dispatch
+        dispatch({ type: 'UPDATE_PANEL_POSITION', payload: { id: currentPanelId, x: snappedX, y: snappedY } });
 
     } else if (resizingPanelIdRef.current) {
       let snappedWidth = startPanelWidthRef.current + dx;
       let snappedHeight = startPanelHeightRef.current + dy;
       snappedWidth = Math.max(snappedWidth, 20);
       snappedHeight = Math.max(snappedHeight, 20);
-      dispatch({ type: 'UPDATE_PANEL_DIMENSIONS', payload: { id: currentPanelId, width: snappedWidth, height: snappedHeight } }); // Direct dispatch
+      dispatch({ type: 'UPDATE_PANEL_DIMENSIONS', payload: { id: currentPanelId, width: snappedWidth, height: snappedHeight } });
     }
     
     setGuideLines(newGuides);
@@ -259,10 +295,8 @@ const DrawingCanvas: React.FC = () => {
   const isCopyDisabled = selectedPanels.length === 0;
   const isPasteDisabled = state.copiedPanels.length === 0;
 
-  const handleExportPNG = useCallback(() => { if (canvasRef.current) { exportCanvasAsPNG(canvasRef.current, canvasBgColor, dispatch); } }, [canvasBgColor, dispatch]);
-  const handleExportConfig = useCallback(() => { exportCanvasConfigAsJSON(config, dispatch); setHasUnsavedChanges(false); }, [config, dispatch]);
   const handleImportConfig = useCallback((event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (file) { importCanvasConfig(file, dispatch); event.target.value = ''; setSelectedPanels([]); setHasUnsavedChanges(false); } }, [dispatch]);
-  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => { if (event.target === canvasRef.current) { setSelectedPanels([]); } }, []);
+  const handleCanvasClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => { if (event.target === canvasRef.current) { setSelectedPanels([]); } handleCloseContextMenu}, [handleCloseContextMenu]);
 
   const handlePanelInteractionStart = useCallback((panelId: string, event: React.MouseEvent, type: 'drag' | 'resize') => {
     event.stopPropagation();
@@ -283,7 +317,7 @@ const DrawingCanvas: React.FC = () => {
     }
     if (handleGlobalMouseMoveRef.current) document.addEventListener('mousemove', handleGlobalMouseMoveRef.current);
     document.addEventListener('mouseup', handleGlobalMouseUp);
-}, [panels, handleGlobalMouseUp]);
+  }, [panels, handleGlobalMouseUp]);
 
 
   const handlePanelClick = useCallback((panelId: string, event: React.MouseEvent) => { event.stopPropagation(); if (event.ctrlKey || event.metaKey) { setSelectedPanels(prevSelected => prevSelected.includes(panelId) ? prevSelected.filter(id => id !== panelId) : [...prevSelected, panelId]); } else { setSelectedPanels([panelId]); } }, []);
@@ -294,26 +328,43 @@ const DrawingCanvas: React.FC = () => {
     return `${base} ${themeBorders}`;
   }, [theme]);
 
+  console.log('DrawingCanvas is rendering. ContextMenu state is:', contextMenu);
   return (
-    <div className={`min-h-screen flex flex-col items-center p-8 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'} transition-colors duration-300`}>
-        <Toolbar 
-            theme={theme} onAddPanel={onAddPanel} onUndo={() => dispatch({ type: 'UNDO' })} 
-            onRedo={() => dispatch({ type: 'REDO' })} onExportConfig={handleExportConfig} 
-            onImportConfig={handleImportConfig} onExportPNG={handleExportPNG} 
-            onRemoveSelectedPanels={onRemoveSelectedPanels} onToggleTheme={onToggleTheme} 
-            onCopySelectedPanels={onCopySelectedPanels} onPastePanels={onPastePanels} 
-            isUndoDisabled={isUndoDisabled} isRedoDisabled={isRedoDisabled} 
-            isDeleteDisabled={isDeleteDisabled} isCopyDisabled={isCopyDisabled} 
-            isPasteDisabled={isPasteDisabled} 
+    <div className={`min-h-screen flex flex-col items-center p-4 md:p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
+        <h1 className={`text-2xl font-bold my-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-center`}>
+            Layout Designer
+        </h1>
+        
+
+        <Ribbon
+            theme={theme}
+            onAddPanel={onAddPanel}
+            onUndo={() => dispatch({ type: 'UNDO' })}
+            onRedo={() => dispatch({ type: 'REDO' })}
+            onExportConfig={() => { exportCanvasConfigAsJSON(config, dispatch); setHasUnsavedChanges(false); }}
+            onImportConfig={handleImportConfig}
+            onExportPNG={() => { if (canvasRef.current) exportCanvasAsPNG(canvasRef.current, canvasBgColor, dispatch); }}
+            onRemoveSelectedPanels={onRemoveSelectedPanels}
+            onToggleTheme={onToggleTheme}
+            onCopySelectedPanels={onCopySelectedPanels}
+            onPastePanels={onPastePanels}
+            isUndoDisabled={isUndoDisabled}
+            isRedoDisabled={isRedoDisabled}
+            isDeleteDisabled={isDeleteDisabled}
+            isCopyDisabled={isCopyDisabled}
+            isPasteDisabled={isPasteDisabled}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            canvasBgColor={canvasBgColor}
+            canvasFgColor={canvasFgColor}
+            canvasBorderRadius={canvasBorderRadius}
+            showGrid={showGrid}
+            onUpdateCanvasDimensions={onUpdateCanvasDimensions}
+            onUpdateCanvasColors={onUpdateCanvasColors}
+            onSetCanvasBorderRadius={onSetCanvasBorderRadius}
+            onToggleGrid={onToggleGrid}
         />
-        <CanvasControls 
-            canvasWidth={canvasWidth} canvasHeight={canvasHeight} canvasBgColor={canvasBgColor} 
-            canvasFgColor={canvasFgColor} canvasBorderRadius={canvasBorderRadius} 
-            panelRoundedCorners={panelRoundedCorners} showGrid={showGrid} theme={theme} 
-            onUpdateCanvasDimensions={onUpdateCanvasDimensions} onUpdateCanvasColors={onUpdateCanvasColors} 
-            onSetCanvasBorderRadius={onSetCanvasBorderRadius} onTogglePanelRoundedCorners={onTogglePanelRoundedCorners} 
-            onToggleGrid={onToggleGrid} 
-        />
+
         <div 
             ref={canvasRef} 
             className={canvasClasses} 
@@ -325,6 +376,10 @@ const DrawingCanvas: React.FC = () => {
                 backgroundSize: showGrid ? '20px 20px' : 'auto' 
             }} 
             onClick={handleCanvasClick}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              handleCloseContextMenu();
+            }}
         >
             {panels.map((panel) => (
                 <Panel key={panel.id} panel={panel} isSelected={selectedPanels.includes(panel.id)}
@@ -333,7 +388,8 @@ const DrawingCanvas: React.FC = () => {
                     onUpdateStyle={onUpdatePanelStyle} canvasWidth={canvasWidth} canvasHeight={canvasHeight}
                     canvasFgColor={canvasFgColor} panelRoundedCorners={panelRoundedCorners} theme={theme}
                     onInteractionStart={handlePanelInteractionStart}
-                    onEdit={() => { /* Edit functionality to be implemented */ }}
+                    onEdit={() => { console.warn('Edit not implemented'); }}
+                    onContextMenu={handleContextMenu}
                 />
             ))}
             
@@ -350,6 +406,20 @@ const DrawingCanvas: React.FC = () => {
                     {indicator.value}
                 </div>
             ))}
+
+            {contextMenu && (
+            <ContextMenu
+                x={contextMenu.x}
+                y={contextMenu.y}
+                theme={theme}
+                onClose={handleCloseContextMenu}
+                onCopy={() => { onCopySelectedPanels(); handleCloseContextMenu(); }}
+                onPaste={() => { onPastePanels(); handleCloseContextMenu(); }}
+                onDelete={handleDeleteFromMenu}
+                onBringToFront={handleBringToFront}
+                onSendToBack={handleSendToBack}
+            />
+            )}
 
             <div className={`absolute bottom-0 left-0 w-full h-2 cursor-ns-resize z-50`} onMouseDown={(e) => handleCanvasResizeStart(e, 's')} />
             <div className={`absolute top-0 right-0 h-full w-2 cursor-ew-resize z-50`} onMouseDown={(e) => handleCanvasResizeStart(e, 'e')} />

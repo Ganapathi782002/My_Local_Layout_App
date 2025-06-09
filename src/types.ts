@@ -56,4 +56,6 @@ export type CanvasAction =
   | { type: 'REDO' }
   | { type: 'COPY_PANELS'; payload: { ids: string[] } }
   | { type: 'PASTE_PANELS'; payload?: { offset?: number; zIndex?: number } }
-  | { type: 'UPDATE_PANEL_STYLE'; payload: { id: string; styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType'>> } };
+  | { type: 'UPDATE_PANEL_STYLE'; payload: { id: string; styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType'>> } }
+  | { type: 'BRING_TO_FRONT'; payload: { id: string }}
+  | { type: 'SEND_TO_BACK'; payload: { id: string}};

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react';
-import { PanelInterface, ShapeType } from '../types';
+import { PanelInterface } from '../types';
 import { FiEdit, FiX } from 'react-icons/fi';
 
 interface PanelProps {
@@ -17,6 +17,7 @@ interface PanelProps {
   theme: 'light' | 'dark';
   onInteractionStart: (panelId: string, event: React.MouseEvent, type: 'drag' | 'resize') => void;
   onEdit: (panelId: string) => void;
+  onContextMenu: (event: React.MouseEvent, panelId: string) => void;
 }
 
 export const Panel: React.FC<PanelProps> = ({
@@ -28,6 +29,7 @@ export const Panel: React.FC<PanelProps> = ({
   theme,
   onInteractionStart,
   onUpdateStyle,
+  onContextMenu,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [editingText, setEditingText] = useState(false);
@@ -39,6 +41,13 @@ export const Panel: React.FC<PanelProps> = ({
     textColor,
     borderRadius
   } = panel;
+
+  const handleContextMenu = (event: React.MouseEvent) => {
+    console.log('Step 1: Right-click detected on Panel ID:', id);
+    event.preventDefault();
+    event.stopPropagation();
+    onContextMenu(event, id);
+  }
 
   const renderShape = useCallback(() => {
     if (width <= 0 || height <= 0) { return null; }
@@ -105,7 +114,7 @@ export const Panel: React.FC<PanelProps> = ({
       }
     }
     if (isSelected) {
-      classes += ` z-50 ${theme === 'dark' ? 'ring-2 ring-blue-400' : 'ring-2 ring-blue-500'}`;
+      classes += ` z-50 ring-2 ${theme === 'dark' ? 'ring-blue-400' : 'ring-blue-500'}`;
     } else {
       classes += ` z-20`;
     }
@@ -195,6 +204,7 @@ export const Panel: React.FC<PanelProps> = ({
         onMouseDown={handleMouseDown}
         onClick={handlePanelClick}
         data-panel-id={id}
+        onContextMenu={handleContextMenu}
       >
         <div style={{ position: 'absolute', width: '100%', height: '100%', top: 0, left: 0, pointerEvents: 'none' }}>
           {renderShape()}
@@ -203,7 +213,7 @@ export const Panel: React.FC<PanelProps> = ({
         {showTextArea && (
           <div style={{...innerContentStyle, pointerEvents: 'none' }}>
             <textarea
-              className={`w-full h-full text-center outline-none resize-none font-mono text-sm leading-tight bg-transparent ${!isSelected && !editingText && text.trim() === '' ? 'placeholder-gray-500 dark:placeholder-gray-400' : ''}`}
+              className={`w-full h-full text-center outline-none resize-none font-sans text-sm leading-tight bg-transparent ${!isSelected && !editingText && text.trim() === '' ? 'placeholder-gray-500 dark:placeholder-gray-400' : ''}`}
               style={{ color: textColor, pointerEvents: textAreaPointerEvents, boxSizing: 'border-box' }}
               value={text}
               onChange={handleTextChange}
@@ -217,9 +227,11 @@ export const Panel: React.FC<PanelProps> = ({
 
         {isSelected && (
           <>
+            {/* The blue circle is removed and replaced by this invisible hotspot */}
             <div
               data-resizer="true"
-              className={`absolute -bottom-2 -right-2 w-5 h-5 border-2 border-white dark:border-gray-900 bg-blue-500 dark:bg-blue-400 rounded-full cursor-nwse-resize shadow-md`}
+              className="absolute -bottom-1 -right-1 w-4 h-4 cursor-nwse-resize z-30"
+              title="Resize"
             />
             <div
               data-edit-icon="true"

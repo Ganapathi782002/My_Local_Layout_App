@@ -174,7 +174,6 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         ...state,
         config: state.history[newHistoryIndexUndo],
         historyIndex: newHistoryIndexUndo,
-        // hasUnsavedChanges should be true if not at the very first state
         hasUnsavedChanges: newHistoryIndexUndo !== 0,
       };
     case 'REDO':
@@ -185,12 +184,36 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
         historyIndex: newHistoryIndexRedo,
         hasUnsavedChanges: newHistoryIndexRedo !== 0,
       };
+    case 'BRING_TO_FRONT': {
+      const maxZIndex = state.config.panels.length > 0 
+        ? Math.max(...state.config.panels.map(p => p.zIndex)) 
+        : 0;
+      
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.map(p => 
+          p.id === action.payload.id ? { ...p, zIndex: maxZIndex + 1 } : p
+        ),
+      };
+      break;
+    }
+    case 'SEND_TO_BACK': {
+      const minZIndex = state.config.panels.length > 0
+      ? Math.min(...state.config.panels.map(p => p.zIndex))
+      : 0;
+      newConfig = {
+        ...state.config,
+        panels: state.config.panels.map(p => 
+          p.id === action.payload.id ? { ...p, zIndex: minZIndex - 1 } : p
+        ),
+      };
+      break;
+    }
     default:
       console.warn("Unhandled action type:", action);
       return state;
   }
 
-  // Common logic for state updates that involve history (most cases)
   if (newConfig && JSON.stringify(newConfig) !== JSON.stringify(state.config)) {
     const newHistory = state.history.slice(0, state.historyIndex + 1);
     newHistory.push(newConfig);
