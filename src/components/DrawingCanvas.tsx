@@ -112,7 +112,6 @@ const DrawingCanvas: React.FC = () => {
   const onCopySelectedPanels = useCallback(() => { if (selectedPanels.length > 0) { dispatch({ type: 'COPY_PANELS', payload: { ids: selectedPanels } }); } }, [dispatch, selectedPanels]);
   const onPastePanels = useCallback(() => { dispatch({ type: 'PASTE_PANELS' }); }, [dispatch]);
   const handleCloseContextMenu = useCallback(() => {
-    console.log("!!! Closing context menu right now !!!");
     setContextMenu(null);
   }, []);
   const handleContextMenu = useCallback((event: React.MouseEvent, panelId: string) => {
@@ -328,7 +327,6 @@ const DrawingCanvas: React.FC = () => {
     return `${base} ${themeBorders}`;
   }, [theme]);
 
-  console.log('DrawingCanvas is rendering. ContextMenu state is:', contextMenu);
   return (
     <div className={`min-h-screen flex flex-col items-center p-4 md:p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
         <h1 className={`text-2xl font-bold my-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-center`}>

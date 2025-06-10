@@ -43,7 +43,6 @@ export const Panel: React.FC<PanelProps> = ({
   } = panel;
 
   const handleContextMenu = (event: React.MouseEvent) => {
-    console.log('Step 1: Right-click detected on Panel ID:', id);
     event.preventDefault();
     event.stopPropagation();
     onContextMenu(event, id);
@@ -114,7 +113,7 @@ export const Panel: React.FC<PanelProps> = ({
       }
     }
     if (isSelected) {
-      classes += ` z-50 ring-2 ${theme === 'dark' ? 'ring-blue-400' : 'ring-blue-500'}`;
+      classes += ` z-40 ring-2 ${theme === 'dark' ? 'ring-blue-400' : 'ring-blue-500'}`;
     } else {
       classes += ` z-20`;
     }
@@ -124,7 +123,7 @@ export const Panel: React.FC<PanelProps> = ({
   const panelInlineStyles = useMemo(() => {
     const styles: React.CSSProperties = {
       left: x, top: y, width: width, height: height,
-      zIndex: isSelected ? 50 : zIndex,
+      zIndex: isSelected ? 20 : zIndex,
     };
     if (renderShape() === null) {
       styles.backgroundColor = backgroundColor;

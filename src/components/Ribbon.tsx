@@ -168,7 +168,7 @@ const Ribbon: React.FC<RibbonProps> = (props) => {
                   <button
                       ref={shapesButtonRef}
                       onClick={() => setIsShapesDropdownOpen(!isShapesDropdownOpen)}
-                      className={`flex items-center p-2 rounded-md transition-colors text-white ${theme === 'dark' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
+                      className={`flex items-center p-2  rounded-md transition-colors text-white ${theme === 'dark' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
                       title="Add Shape"
                   >
                       <Square size={18} />
