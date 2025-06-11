@@ -27,8 +27,15 @@ export interface CanvasConfig {
   canvasBorderRadius: number; 
   showGrid: boolean;
   theme: 'light' | 'dark';
+  pageBackground: PageBackground;
 }
 
+export interface PageBackground {
+  type: 'solid' | 'gradient';
+  color1: string;
+  color2: string;
+  angle: number;
+}
 
 export interface CanvasState {
   config: CanvasConfig;
@@ -58,4 +65,5 @@ export type CanvasAction =
   | { type: 'PASTE_PANELS'; payload?: { offset?: number; zIndex?: number } }
   | { type: 'UPDATE_PANEL_STYLE'; payload: { id: string; styles: Partial<Omit<PanelInterface, 'id' | 'x' | 'y' | 'width' | 'height' | 'zIndex' | 'text' | 'shapeType'>> } }
   | { type: 'BRING_TO_FRONT'; payload: { id: string }}
-  | { type: 'SEND_TO_BACK'; payload: { id: string}};
+  | { type: 'SEND_TO_BACK'; payload: { id: string}}
+  | { type: 'SET_PAGE_BACKGROUND'; payload: Partial<PageBackground> };

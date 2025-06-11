@@ -113,9 +113,9 @@ export const Panel: React.FC<PanelProps> = ({
       }
     }
     if (isSelected) {
-      classes += ` z-40 ring-2 ${theme === 'dark' ? 'ring-blue-400' : 'ring-blue-500'}`;
+      classes += ` z-50 ring-2 ${theme === 'dark' ? 'ring-blue-400' : 'ring-blue-500'}`;
     } else {
-      classes += ` z-20`;
+      classes += ` z-30`;
     }
     return classes;
   }, [shapeType, isSelected, panelRoundedCorners, theme]);
@@ -226,7 +226,6 @@ export const Panel: React.FC<PanelProps> = ({
 
         {isSelected && (
           <>
-            {/* The blue circle is removed and replaced by this invisible hotspot */}
             <div
               data-resizer="true"
               className="absolute -bottom-1 -right-1 w-4 h-4 cursor-nwse-resize z-30"

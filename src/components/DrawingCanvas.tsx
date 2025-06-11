@@ -4,7 +4,7 @@ import { Panel } from '../components/Panel';
 import Ribbon from './Ribbon';
 import { exportCanvasAsPNG, exportCanvasConfigAsJSON, importCanvasConfig } from '../utils/fileOperations';
 import { generateUniqueId } from '../utils/idGenerator';
-import { PanelInterface, ShapeType } from '../types';
+import { PanelInterface, ShapeType, PageBackground } from '../types';
 import ContextMenu from './ContextMenu';
 
 const DEFAULT_PANEL_STYLES: { [key in ShapeType]?: Partial<PanelInterface> } = {
@@ -37,7 +37,7 @@ const DrawingCanvas: React.FC = () => {
   const { config, history, historyIndex } = state;
   const {
     panels, canvasWidth, canvasHeight, canvasBgColor, canvasFgColor,
-    panelRoundedCorners, canvasBorderRadius, showGrid, theme
+    panelRoundedCorners, canvasBorderRadius, showGrid, theme, pageBackground
   } = config;
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -281,7 +281,7 @@ const DrawingCanvas: React.FC = () => {
       if (!isTyping) {
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') { event.preventDefault(); onCopySelectedPanels(); }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') { event.preventDefault(); onPastePanels(); }
-        if (event.key === 'Delete' || event.key === 'Backspace') { if (selectedPanels.length > 0) { event.preventDefault(); onRemoveSelectedPanels(); } }
+        if (event.key === 'Delete') { if (selectedPanels.length > 0) { event.preventDefault(); onRemoveSelectedPanels(); } }
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -327,8 +327,18 @@ const DrawingCanvas: React.FC = () => {
     return `${base} ${themeBorders}`;
   }, [theme]);
 
+  const handleUpdatePageBackground = useCallback((settings: Partial<PageBackground>) => {
+    dispatch({ type: 'SET_PAGE_BACKGROUND', payload: settings });
+  }, [dispatch]);
+  const pageStyle = useMemo(() => {
+    if (pageBackground.type === 'gradient') {
+      return { backgroundImage: `linear-gradient(${pageBackground.angle}deg, ${pageBackground.color1}, ${pageBackground.color2})` };
+    }
+    return { backgroundColor: pageBackground.color1 };
+  }, [pageBackground]);
+
   return (
-    <div className={`min-h-screen flex flex-col items-center p-4 md:p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
+    <div className={`min-h-screen flex flex-col items-center p-4 md:p-6 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`} /*style={pageStyle}*/>
         <h1 className={`text-2xl font-bold my-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'} text-center`}>
             Layout Designer
         </h1>
@@ -361,6 +371,8 @@ const DrawingCanvas: React.FC = () => {
             onUpdateCanvasColors={onUpdateCanvasColors}
             onSetCanvasBorderRadius={onSetCanvasBorderRadius}
             onToggleGrid={onToggleGrid}
+            pageBackground={pageBackground}
+            onUpdatePageBackground={handleUpdatePageBackground}
         />
 
         <div 

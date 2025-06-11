@@ -10,6 +10,12 @@ export const initialCanvasConfig: CanvasConfig = {
   canvasBorderRadius: 8,
   showGrid: false,
   theme: 'light',
+  pageBackground: {
+    type: 'solid',
+    color1: '#f3f4f6',
+    color2: '#4b5563',
+    angle: 135,
+  },
   panelRoundedCorners: false
 };
 
@@ -209,6 +215,15 @@ export function canvasReducer(state: CanvasState, action: CanvasAction): CanvasS
       };
       break;
     }
+    case 'SET_PAGE_BACKGROUND':
+      newConfig = {
+        ...state.config,
+        pageBackground: {
+          ...state.config.pageBackground,
+          ...action.payload,
+        },
+      };
+      break;
     default:
       console.warn("Unhandled action type:", action);
       return state;

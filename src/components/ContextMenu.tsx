@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Copy, ClipboardPaste, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface ContextMenuProps {
@@ -17,6 +17,26 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   x, y, theme, onClose, onCopy, onPaste, onDelete, onBringToFront, onSendToBack
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: y, left: x });
+
+  useEffect(() => {
+    if (menuRef.current) {
+      const { width: menuWidth, height: menuHeight } = menuRef.current.getBoundingClientRect();
+      const { innerWidth: windowWidth, innerHeight: windowHeight } = window;
+      
+      let adjustedX = x;
+      let adjustedY = y;
+      if (x + menuWidth > windowWidth) {
+        adjustedX = x - menuWidth;
+      }
+      if (y + menuHeight > windowHeight) {
+        adjustedY = y - menuHeight;
+      }
+      if(adjustedX !== x || adjustedY !== y) {
+        setMenuPosition({ top: adjustedY, left: adjustedX });
+      }
+    }
+  }, [x, y]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -39,8 +59,8 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className={`fixed p-1 rounded-md shadow-xl border z-[10000] ${menuBg} ${menuBorder}`}
-      style={{ top: y, left: x }}
+      className={`fixed p-1 rounded-md shadow-xl border z-[1000] ${menuBg} ${menuBorder}`}
+      style={{ top: menuPosition.top, left: menuPosition.left }}
     >
       <ul className="space-y-1">
         <li><button onClick={onCopy} className={menuItemClasses}><Copy size={14} className="mr-2" /> Copy</button></li>

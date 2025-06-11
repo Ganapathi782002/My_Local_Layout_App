@@ -5,7 +5,7 @@ import {
   Star as StarIcon, Hexagon as HexagonIcon, Type as TypeIcon, Diamond as DiamondIcon,
   ChevronRight as ChevronIcon, Spline as PolylineIcon, Pentagon as PolygonIcon, ChevronDown,
 } from 'lucide-react';
-import type { ShapeType } from '../types';
+import type { ShapeType, PageBackground } from '../types';
 
 interface RibbonProps {
   theme: 'light' | 'dark';
@@ -34,6 +34,8 @@ interface RibbonProps {
   onUpdateCanvasColors: (bgColor: string, fgColor: string) => void;
   onSetCanvasBorderRadius: (radius: number) => void;
   onToggleGrid: () => void;
+  pageBackground: PageBackground;
+  onUpdatePageBackground: (settings: Partial<PageBackground>) => void;
 }
 
 // Helper component for a single toolbar button
@@ -99,7 +101,7 @@ const Ribbon: React.FC<RibbonProps> = (props) => {
     onPastePanels, isUndoDisabled, isRedoDisabled, isDeleteDisabled, isCopyDisabled,
     isPasteDisabled, canvasWidth, canvasHeight, canvasBgColor, canvasFgColor,
     canvasBorderRadius, showGrid, onUpdateCanvasDimensions, onUpdateCanvasColors,
-    onSetCanvasBorderRadius, onToggleGrid
+    onSetCanvasBorderRadius, onToggleGrid, pageBackground, onUpdatePageBackground
   } = props;
   
   const [showCopiedTooltip, setShowCopiedTooltip] = useState(false);
@@ -179,7 +181,7 @@ const Ribbon: React.FC<RibbonProps> = (props) => {
                   {isShapesDropdownOpen && (
                       <div
                           ref={shapesDropdownRef}
-                          className={`absolute top-full left-0 mt-2 w-72 max-h-96 overflow-y-auto p-2 rounded-md shadow-xl z-50 border ${mainBg} ${mainBorder} grid grid-cols-3 gap-2`}
+                          className={`absolute top-full left-0 mt-2 w-72 max-h-96 overflow-y-auto p-2 rounded-md shadow-xl z-[80] border ${mainBg} ${mainBorder} grid grid-cols-3 gap-2`}
                       >
                           {shapeMenuItems.map(({ type, label, Icon }) => (
                               <button
@@ -226,6 +228,45 @@ const Ribbon: React.FC<RibbonProps> = (props) => {
                   </div>
               </div>
               <span className={`text-xs mt-2 ${groupLabelText}`}>Canvas Pane</span>
+            </div>
+
+            <Separator />
+
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-4">
+                  {/* Type Selector */}
+                  <div className="flex flex-col">
+                      <label className={`text-xs mb-1 ${labelText}`}>Type</label>
+                      <select 
+                        value={pageBackground.type} 
+                        onChange={(e) => onUpdatePageBackground({ type: e.target.value as 'solid' | 'gradient' })}
+                        className={`p-1 text-sm rounded border ${inputBorder} ${inputBg} ${inputText} ${focusRing} outline-none`}
+                      >
+                          <option value="solid">Solid</option>
+                          <option value="gradient">Gradient</option>
+                      </select>
+                  </div>
+                  {/* Color Pickers */}
+                  <div className="flex flex-col">
+                      <label className={`text-xs mb-1 ${labelText}`}>
+                        {pageBackground.type === 'solid' ? 'Color' : 'Color 1'}
+                      </label>
+                      <input type="color" value={pageBackground.color1} onChange={(e) => onUpdatePageBackground({ color1: e.target.value })} className="w-6 h-6 p-0 border-none rounded cursor-pointer" title="Background Color 1" />
+                  </div>
+                  {pageBackground.type === 'gradient' && (
+                    <>
+                      <div className="flex flex-col">
+                        <label className={`text-xs mb-1 ${labelText}`}>Color 2</label>
+                        <input type="color" value={pageBackground.color2} onChange={(e) => onUpdatePageBackground({ color2: e.target.value })} className="w-6 h-6 p-0 border-none rounded cursor-pointer" title="Background Color 2" />
+                      </div>
+                      <div className="flex flex-col">
+                        <label className={`text-xs mb-1 ${labelText}`}>Angle</label>
+                        <input type="number" value={pageBackground.angle} onChange={(e) => onUpdatePageBackground({ angle: parseInt(e.target.value, 10) || 0 })} className={`w-16 p-1 text-sm rounded border ${inputBorder} ${inputBg} ${inputText} ${focusRing} outline-none`} title="Gradient Angle" />
+                      </div>
+                    </>
+                  )}
+              </div>
+              <span className={`text-xs mt-2 ${groupLabelText}`}>Page Background</span>
             </div>
 
             <Separator />
