@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Copy, ClipboardPaste, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { usePopper } from 'react-popper';
+import type { VirtualElement } from '@popperjs/core';
 
 interface ContextMenuProps {
   x: number;
@@ -16,37 +18,41 @@ interface ContextMenuProps {
 const ContextMenu: React.FC<ContextMenuProps> = ({
   x, y, theme, onClose, onCopy, onPaste, onDelete, onBringToFront, onSendToBack
 }) => {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPosition, setMenuPosition] = useState({ top: y, left: x });
+  const [referenceElement, setReferenceElement] = useState<VirtualElement | null>(null);
+  const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(null);
+
+  //console.log("Reference element before and after useEffect: ",referenceElement);
 
   useEffect(() => {
-    if (menuRef.current) {
-      const { width: menuWidth, height: menuHeight } = menuRef.current.getBoundingClientRect();
-      const { innerWidth: windowWidth, innerHeight: windowHeight } = window;
-      
-      let adjustedX = x;
-      let adjustedY = y;
-      if (x + menuWidth > windowWidth) {
-        adjustedX = x - menuWidth;
-      }
-      if (y + menuHeight > windowHeight) {
-        adjustedY = y - menuHeight;
-      }
-      if(adjustedX !== x || adjustedY !== y) {
-        setMenuPosition({ top: adjustedY, left: adjustedX });
-      }
-    }
+    setReferenceElement({
+      getBoundingClientRect: () => DOMRect.fromRect({
+        width: 0,
+        height: 0,
+        x: x,
+        y: y,
+      }),
+    });
   }, [x, y]);
+
+
+  const { styles } = usePopper(referenceElement, popperElement, {
+    placement: 'top-end',
+    modifiers: [
+      { name: 'offset', options: { offset: [5,5] } },
+      { name: 'flip' },
+      { name: 'preventOverflow', options: { padding: 5 } },
+    ],
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (popperElement && !popperElement.contains(event.target as Node)) {
         onClose();
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+  }, [popperElement, onClose]);
 
   const menuBg = theme === 'dark' ? 'bg-gray-800' : 'bg-white';
   const menuBorder = theme === 'dark' ? 'border-gray-700' : 'border-gray-200';
@@ -58,9 +64,9 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
 
   return (
     <div
-      ref={menuRef}
-      className={`fixed p-1 rounded-md shadow-xl border z-[1000] ${menuBg} ${menuBorder}`}
-      style={{ top: menuPosition.top, left: menuPosition.left }}
+      ref={setPopperElement}
+      style={styles.popper}
+      className={`fixed p-1 rounded-md shadow-xl border z-[10000] ${menuBg} ${menuBorder}`}
     >
       <ul className="space-y-1">
         <li><button onClick={onCopy} className={menuItemClasses}><Copy size={14} className="mr-2" /> Copy</button></li>

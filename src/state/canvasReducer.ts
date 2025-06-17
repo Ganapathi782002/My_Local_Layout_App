@@ -16,7 +16,12 @@ export const initialCanvasConfig: CanvasConfig = {
     color2: '#4b5563',
     angle: 135,
   },
-  panelRoundedCorners: false
+  panelRoundedCorners: false,
+  showMargins: true,
+  marginTop: 0,
+  marginBottom: 0,
+  marginLeft: 0,
+  marginRight: 0
 };
 
 export const initialState: CanvasState = {

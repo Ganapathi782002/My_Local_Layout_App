@@ -28,6 +28,11 @@ export interface CanvasConfig {
   showGrid: boolean;
   theme: 'light' | 'dark';
   pageBackground: PageBackground;
+  showMargins: boolean;
+  marginTop: number;
+  marginBottom: number;
+  marginLeft: number; 
+  marginRight: number;
 }
 
 export interface PageBackground {

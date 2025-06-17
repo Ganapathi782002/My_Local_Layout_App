@@ -37,7 +37,8 @@ const DrawingCanvas: React.FC = () => {
   const { config, history, historyIndex } = state;
   const {
     panels, canvasWidth, canvasHeight, canvasBgColor, canvasFgColor,
-    panelRoundedCorners, canvasBorderRadius, showGrid, theme, pageBackground
+    panelRoundedCorners, canvasBorderRadius, showGrid, theme, pageBackground,
+    showMargins, marginTop, marginBottom, marginLeft, marginRight,
   } = config;
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -88,7 +89,7 @@ const DrawingCanvas: React.FC = () => {
 
   const onAddPanel = useCallback((shapeType: ShapeType) => {
     const maxZIndex = panels.length > 0 ? Math.max(...panels.map(p => p.zIndex)) : 0;
-    const globalPanelDefaults = { width: 100, height: 100, text: '', backgroundColor: '#CCCCCC', borderColor: '#000000', borderWidth: 1, borderStyle: 'solid' };
+    const globalPanelDefaults = { width: 100, height: 100, text: '', backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 1, borderStyle: 'solid' };
     const shapeSpecificDefaults = DEFAULT_PANEL_STYLES[shapeType] || {};
     const newPanel: PanelInterface = {
       ...globalPanelDefaults, ...shapeSpecificDefaults,
@@ -193,6 +194,14 @@ const DrawingCanvas: React.FC = () => {
         let snappedX = startPanelXRef.current + dx;
         let snappedY = startPanelYRef.current + dy;
 
+        const minX = showMargins ? marginLeft : 0;
+        const maxX = showMargins ? canvasWidth - marginRight - currentPanel.width : canvasWidth - currentPanel.width;
+        const minY = showMargins ? marginTop : 0;
+        const maxY = showMargins ? canvasHeight - marginBottom - currentPanel.height : canvasHeight - currentPanel.height;
+
+        const clampedX = Math.max(minX, Math.min(snappedX, maxX));
+        const clampedY = Math.max(minY, Math.min(snappedY, maxY));
+
         let closestPanel: PanelInterface | null = null;
         let minDistance = Infinity;
 
@@ -230,17 +239,17 @@ const DrawingCanvas: React.FC = () => {
             if (Math.abs((snappedY + currentPanel.height) - (other.y + other.height)) < SNAP_THRESHOLD) snappedY = other.y + other.height - currentPanel.height;
         }
 
-        const distTop = snappedY;
-        const distLeft = snappedX;
-        const distBottom = canvasHeight - (snappedY + currentPanel.height);
-        const distRight = canvasWidth - (snappedX + currentPanel.width);
+        const distTop = clampedY - minY;
+        const distLeft = clampedX - minX;
+        const distBottom = (showMargins ? canvasHeight - marginBottom : canvasHeight) - (clampedY + currentPanel.height);
+        const distRight = (showMargins ? canvasWidth - marginRight : canvasWidth) - (clampedX + currentPanel.width);
 
-        if (distTop > 0 && distTop < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'top', value: `${distTop.toFixed(0)}px`, style: { top: `${distTop / 2}px`, left: `${snappedX + currentPanel.width / 2}px`, transform: 'translateX(-50%)' }}); }
-        if (distBottom > 0 && distBottom < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'bottom', value: `${distBottom.toFixed(0)}px`, style: { bottom: `${distBottom / 2}px`, left: `${snappedX + currentPanel.width / 2}px`, transform: 'translateX(-50%)' }}); }
-        if (distLeft > 0 && distLeft < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'left', value: `${distLeft.toFixed(0)}px`, style: { left: `${distLeft / 2}px`, top: `${snappedY + currentPanel.height / 2}px`, transform: 'translateY(-50%)' }}); }
-        if (distRight > 0 && distRight < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'right', value: `${distRight.toFixed(0)}px`, style: { right: `${distRight / 2}px`, top: `${snappedY + currentPanel.height / 2}px`, transform: 'translateY(-50%)' }}); }
+        if (distTop > 0 && distTop < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'top', value: `${distTop.toFixed(0)}px`, style: { top: minY + distTop / 2, left: `${clampedX + currentPanel.width / 2}px`, transform: 'translateX(-50%)' }}); }
+        if (distBottom > 0 && distBottom < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'bottom', value: `${distBottom.toFixed(0)}px`, style: { bottom: (showMargins ? marginBottom : 0) + distBottom / 2, left: `${clampedX + currentPanel.width / 2}px`, transform: 'translateX(-50%)' }}); }
+        if (distLeft > 0 && distLeft < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'left', value: `${distLeft.toFixed(0)}px`, style: { left: minX + distLeft / 2, top: `${clampedY + currentPanel.height / 2}px`, transform: 'translateY(-50%)' }}); }
+        if (distRight > 0 && distRight < DISTANCE_INDICATOR_THRESHOLD) { newIndicators.push({ id: 'right', value: `${distRight.toFixed(0)}px`, style: { right: (showMargins ? marginRight : 0) + distRight / 2, top: `${clampedY + currentPanel.height / 2}px`, transform: 'translateY(-50%)' }}); }
         
-        dispatch({ type: 'UPDATE_PANEL_POSITION', payload: { id: currentPanelId, x: snappedX, y: snappedY } });
+        dispatch({ type: 'UPDATE_PANEL_POSITION', payload: { id: currentPanelId, x: clampedX, y: clampedY } });
 
     } else if (resizingPanelIdRef.current) {
       let snappedWidth = startPanelWidthRef.current + dx;
