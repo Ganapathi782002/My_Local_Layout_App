@@ -10,7 +10,7 @@ import ContextMenu from './ContextMenu';
 const DEFAULT_PANEL_STYLES: { [key in ShapeType]?: Partial<PanelInterface> } = {
   rectangle: { width: 150, height: 100, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 2, borderStyle: 'solid', text: '' },
   circle: { width: 120, height: 120, backgroundColor: '#ffffff', borderColor: '#000000', borderWidth: 2, borderStyle: 'solid', text: '' },
-  textBlock: { width: 200, height: 50, backgroundColor: 'transparent', borderColor: 'transparent', borderWidth: 0, text: 'Click to Type' },
+  textBlock: { width: 200, height: 50, backgroundColor: 'transparent', borderColor: '#000000', borderWidth: 1, text: 'Click to Type' },
 };
 
 interface GuideLine {
